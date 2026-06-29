@@ -118,6 +118,66 @@ function parseAnyFile(buf) {
     const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     if(!raw.length) continue;
 
+    // ── LinkedIn named-sheet handlers (specific to LinkedIn's export format) ──
+    const SN = sn.toUpperCase();
+
+    // DEMOGRAPHICS sheet: col A = category type, col B = value, col C = percentage
+    if(SN === "DEMOGRAPHICS"){
+      const groups = {};
+      for(let i=1;i<raw.length;i++){
+        const r=raw[i];
+        const cat=String(r[0]??"").trim();
+        const val=String(r[1]??"").trim();
+        const pctStr=String(r[2]??"").trim();
+        if(!cat||!val) continue;
+        const pct=pctStr==="< 1%"?0.5:parseFloat(pctStr)||0;
+        if(!groups[cat]) groups[cat]=[];
+        groups[cat].push({name:val,count:pct,pct:Math.round(pct)||1});
+      }
+      const catMap={"Seniority":"seniority","Industry":"industry","Job function":"function","Job title":"jobTitle","Location":"location","Company":"company","Company size":"companySize"};
+      for(const[cat,items] of Object.entries(groups)){const k=catMap[cat];if(k) result.demo[k]=items;}
+      result.detectedType="followers";
+      continue;
+    }
+
+    // FOLLOWERS sheet: row 1 = total count kv, rows 3+ = date / new followers
+    if(SN === "FOLLOWERS"){
+      if(raw[0]?.[1]) result.totals.totalFollowers=pn(raw[0][1]);
+      for(let i=2;i<raw.length;i++){
+        const r=raw[i];
+        if(!r[0]||String(r[0]).toLowerCase().includes("date")) continue;
+        const d=fmtD(r[0]); const nf=pn(r[1]);
+        const ex=result.dayData.find(x=>x.date===d);
+        if(ex) ex.newFollowers=nf;
+        else result.dayData.push({date:d,impressions:0,members:0,engagements:0,engRate:0,newFollowers:nf});
+      }
+      result.detectedType="followers"; continue;
+    }
+
+    // DISCOVERY sheet: summary impressions + reach
+    if(SN === "DISCOVERY"){
+      for(let i=0;i<raw.length;i++){
+        const k=String(raw[i][0]??"").toLowerCase();
+        if(k.includes("impression")) result.totals.impressions=Math.max(result.totals.impressions||0,pn(raw[i][1]));
+        if(k.includes("member")||k.includes("reach")) result.totals.reach=Math.max(result.totals.reach||0,pn(raw[i][1]));
+      }
+      continue;
+    }
+
+    // ENGAGEMENT sheet: daily impressions + engagements
+    if(SN === "ENGAGEMENT"){
+      for(let i=1;i<raw.length;i++){
+        const r=raw[i];
+        if(!r[0]||String(r[0]).toLowerCase().includes("date")) continue;
+        const d=fmtD(r[0]); const imp=pn(r[1]); const eng=pn(r[2]);
+        const ex=result.dayData.find(x=>x.date===d);
+        if(ex){ex.impressions=imp;ex.engagements=eng;}
+        else result.dayData.push({date:d,impressions:imp,members:0,engagements:eng,engRate:0,newFollowers:0});
+      }
+      result.detectedType="weekly"; continue;
+    }
+    // ── End LinkedIn named-sheet handlers ────────────────────────────────────
+
     // Find header row: first row where >=2 cells match known metrics
     let hdrIdx = -1;
     for(let i=0;i<Math.min(raw.length,20);i++){
