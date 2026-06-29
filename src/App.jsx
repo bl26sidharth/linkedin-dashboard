@@ -24,7 +24,7 @@ const BENCH = {
   followers:{label:"Followers/Post",avg:2,good:6,excellent:12,unit:""},
 };
 const TODAY = "2026-06-25";
-const KEY = {posts:"li_p3",weekly:"li_w3",followers:"li_f3",mods:"li_m3",sentiment:"li_s3"};
+const KEY = {posts:"li_p3",weekly:"li_w3",followers:"li_f3",mods:"li_m3",sentiment:"li_s3",drafts:"li_d3"};
 
 const DOMAINS = [
   {key:"brandManagement",  label:"Brand Management",   icon:"🏷", color:T.blue,   bg:T.blueL},
@@ -283,14 +283,14 @@ function calStatus(date,pubDates,pubTopics){
 const Card=({children,style={}})=><div style={{background:T.surface,borderRadius:12,border:`1px solid ${T.border}`,boxShadow:T.sh,...style}}>{children}</div>;
 const Tag=({cat})=><span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:CAT_B[cat]||T.s2,color:CAT_C[cat]||T.sec}}>{cat}</span>;
 const Pill=({label,color,bg})=><span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:bg||T.s2,color:color||T.sec}}>{label}</span>;
-const SHdr=({t,s})=><div style={{marginBottom:14}}><div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:T.text}}>{t}</div>{s&&<div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{s}</div>}</div>;
+const SHdr=({t,s})=><div style={{marginBottom:14}}><div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:14,color:T.text}}>{t}</div>{s&&<div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{s}</div>}</div>;
 const CTip=({active,payload,label})=>active&&payload?.length?<div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",boxShadow:T.shM,fontSize:12}}><div style={{fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>{payload.map((p,i)=><div key={i} style={{color:p.color}}>{p.name}: <strong>{typeof p.value==="number"&&p.value<100?p.value.toFixed(1)+"%":fn(p.value)}</strong></div>)}</div>:null;
 
 function KPI({label,value,sub,color,bv,bench}){
   const bc=bench&&bv!=null?bColor(bv,bench):null;
   return <Card style={{padding:"18px 20px",flex:1,minWidth:120}}>
     <div style={{fontSize:10.5,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{label}</div>
-    <div style={{fontSize:26,fontWeight:800,color:color||T.text,fontFamily:"'Syne',sans-serif",lineHeight:1,marginBottom:3}}>{value}</div>
+    <div style={{fontSize:26,fontWeight:800,color:color||T.text,fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",lineHeight:1,marginBottom:3}}>{value}</div>
     {sub&&<div style={{fontSize:11,color:T.muted}}>{sub}</div>}
     {bc&&<div style={{display:"inline-flex",alignItems:"center",gap:3,marginTop:5,background:bc===T.green?T.greenL:bc===T.gold?T.goldL:bc===T.blue?T.blueL:T.redL,borderRadius:20,padding:"2px 7px"}}>
       <div style={{width:5,height:5,borderRadius:"50%",background:bc}}/><span style={{fontSize:10,fontWeight:700,color:bc}}>{bLabel(bv,bench)}</span>
@@ -361,7 +361,7 @@ function Overview({posts,weekly,followers}){
   if(!posts.length&&!weekly.length) return (
     <div style={{textAlign:"center",padding:"70px 20px"}}>
       <div style={{fontSize:42,marginBottom:16}}>📊</div>
-      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text,marginBottom:8}}>No data yet</div>
+      <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:20,color:T.text,marginBottom:8}}>No data yet</div>
       <div style={{fontSize:14,color:T.muted}}>Go to Reports and upload your LinkedIn exports. Data appears here automatically.</div>
     </div>
   );
@@ -978,7 +978,7 @@ Every point must be tied to either a specific performance number or a specific s
         {/* AI planner card */}
         <Card style={{padding:"16px 18px",flex:1}}>
           <div style={{marginBottom:12}}>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13.5,color:T.text}}>AI Content Planner</div>
+            <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13.5,color:T.text}}>AI Content Planner</div>
             <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>
               {hasSentiment
                 ? <span>🔍 <strong style={{color:T.green}}>Sentiment-informed</strong> · {sentiment.generatedDate}</span>
@@ -1168,7 +1168,7 @@ Return this exact JSON structure:
         {DOMAINS.map(d=><Card key={d.key} style={{padding:"22px",opacity:0.5}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
             <span style={{fontSize:18}}>{d.icon}</span>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:T.text}}>{d.label}</div>
+            <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:14,color:T.text}}>{d.label}</div>
           </div>
           <div style={{height:12,background:T.s3,borderRadius:6,marginBottom:8,width:"80%"}}/>
           <div style={{height:12,background:T.s3,borderRadius:6,marginBottom:8,width:"60%"}}/>
@@ -1187,7 +1187,7 @@ Return this exact JSON structure:
     {/* Empty state */}
     {!loading&&!hasData&&!data?.error&&<div style={{textAlign:"center",padding:"70px 20px"}}>
       <div style={{fontSize:42,marginBottom:16}}>🔍</div>
-      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text,marginBottom:8}}>No report yet</div>
+      <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:20,color:T.text,marginBottom:8}}>No report yet</div>
       <div style={{fontSize:14,color:T.muted,maxWidth:420,margin:"0 auto",lineHeight:1.7}}>Click Generate to search LinkedIn and professional media for this week's sentiment across Brand Management, Advertising, Consulting, and Product Marketing.</div>
     </div>}
 
@@ -1204,7 +1204,7 @@ Return this exact JSON structure:
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:20}}>{d.icon}</span>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:14,color:T.text}}>{d.label}</div>
+                <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:14,color:T.text}}>{d.label}</div>
               </div>
               <div style={{textAlign:"right"}}>
                 <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:sb,color:sc,textTransform:"capitalize"}}>{dom.sentiment}</span>
@@ -1265,6 +1265,361 @@ Return this exact JSON structure:
   </div>;
 }
 
+/* ── DYNAMIC SCHEDULING ──────────────────────────────────────────────────── */
+function computeBestSchedule(posts, weekly) {
+  // Derive best day-of-week and time from uploaded data
+  const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const engByDay = {};
+  for(const w of weekly){
+    for(const d of w.dayData){
+      // Parse "Jun 16" style dates
+      const parts = d.date?.split(" ");
+      if(!parts||parts.length<2) continue;
+      const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      const m=months[parts[0]]; const day=parseInt(parts[1]);
+      if(isNaN(m)||isNaN(day)) continue;
+      const dt = new Date(2026,m,day);
+      const dn = DAY_NAMES[dt.getDay()];
+      if(!engByDay[dn]) engByDay[dn]={eng:0,imp:0,count:0};
+      engByDay[dn].eng+=d.engagements; engByDay[dn].imp+=d.impressions; engByDay[dn].count++;
+    }
+  }
+  const bestDay = Object.entries(engByDay).sort((a,b)=>b[1].eng-a[1].eng)[0]?.[0]||"Mon";
+  const bestTime = "11:00 AM"; // Default from post 1 performance
+  const gapDays = 3; // From second-wave analysis: don't post within 3 days of previous
+  
+  // Compute suggested dates for upcoming CAL posts
+  const suggestions = {};
+  const pubDates = posts.map(p=>p.date).filter(Boolean).sort();
+  let lastPostDate = pubDates[pubDates.length-1]||TODAY;
+  
+  const DAYS_TO_NUM = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+  
+  CAL.filter(c=>c.date>TODAY).forEach((c,i)=>{
+    // Find next Mon or Thu after lastPostDate + gapDays
+    const after = new Date(lastPostDate);
+    after.setDate(after.getDate()+gapDays);
+    const target = c.day==="Mon"?1:4; // Mon=1, Thu=4
+    let d = new Date(after);
+    while(d.getDay()!==target) d.setDate(d.getDate()+1);
+    const iso = d.toISOString().slice(0,10);
+    const diff = c.date!==iso?`Suggested ${iso.slice(5).replace("-","/")} vs planned ${c.date.slice(5).replace("-","/")}`:null;
+    suggestions[c.date] = {suggestedDate:iso, diff, time:bestTime};
+    lastPostDate = iso;
+  });
+  
+  return {bestDay,bestTime,gapDays,suggestions,engByDay};
+}
+
+/* ── AI PLANNER ──────────────────────────────────────────────────────────── */
+const VOICE_SYSTEM = `You are writing LinkedIn posts for Sidharth Marri — brand strategist, 4 years experience at Peter England, Max Fashion, American Eagle, Nalli Silk Sarees, MTR Foods, and other Indian consumer brands. Currently at IIM Kozhikode PGP-BL Class 2027.
+
+HIS VOICE (follow strictly):
+- Opens with first-person observations: "Something I find genuinely interesting:", "I've been thinking about this:", "What I find hard to fully explain is..."
+- Humble register: "seems to", "I think", "as far as I can piece together", "probably"
+- Always gives a conclusion — never ends with an open question to the reader
+- NO em dashes anywhere. Use commas, periods, or new sentences instead
+- Short paragraphs of 2-4 sentences
+- Real, specific examples — never vague generalisations
+- India-first lens by default when possible
+- Never sounds like a know-it-all — sounds like someone learning faster than average
+- Never uses: "honestly", "genuinely", "straightforward" as filler words
+- Never uses buzzwords without unpacking them
+- Professional but not corporate
+
+FORMAT:
+- Deep post (Monday): 300-450 words, builds one insight with depth
+- Sharp post (Thursday): 80-150 words, one punchy observation
+- Paragraphs separated by single blank lines
+- Hashtags on a final separate line (5 hashtags max)
+- Write ONLY the post — no title, no preamble, no explanation`;
+
+function AIPlanner({posts,weekly,sentiment,mods,onSaveMods,drafts,onSaveDrafts}){
+  const [step,setStep]=useState("idle"); // idle|recommending|editing|comparing
+  const [recLoading,setRecLoading]=useState(false);
+  const [rec,setRec]=useState(null); // {topic, calDate, action, sentimentReason, type, category}
+  const [genLoading,setGenLoading]=useState(false);
+  const [draft,setDraft]=useState({id:"",topic:"",content:"",hashtags:"",category:"Congruence",type:"Deep",calDate:""});
+  const [comparison,setComparison]=useState(null); // {before:{topic,angle}, after:{topic,angle,reason}}
+  const [saved,setSaved]=useState(drafts||[]);
+  const [editingId,setEditingId]=useState(null);
+  const [copied,setCopied]=useState(false);
+  const [saveMsg,setSaveMsg]=useState("");
+
+  const words = draft.content.trim().split(/\s+/).filter(Boolean).length;
+  const chars = draft.content.length;
+  const ideal = draft.type==="Deep"?[300,450]:[80,150];
+  const inRange = words>=ideal[0]&&words<=ideal[1];
+  const rangeColor = inRange?T.green:words>ideal[1]?T.red:T.amber;
+
+  const hasSentiment=!!(sentiment?.domains);
+  const avgEng=posts.length?posts.reduce((s,p)=>s+engRateFrom(p.totals,[]),0)/posts.length:0;
+  const schedule=computeBestSchedule(posts,weekly);
+
+  const pubTopics=new Set(posts.map(p=>p.topic?.toLowerCase().trim()));
+  const nextUnpublished=CAL.find(c=>c.date>=TODAY&&!pubTopics.has(c.topic.toLowerCase().trim()));
+
+  const getRecommendation=async()=>{
+    setRecLoading(true);setRec(null);setComparison(null);
+    const upcoming=CAL.filter(c=>c.date>=TODAY&&!pubTopics.has(c.topic.toLowerCase().trim())).slice(0,6)
+      .map(c=>`${c.date}|${c.day}|${c.type}|${c.cat}|${c.topic}`).join("\n");
+    const perfSummary=posts.map(p=>`${p.date}|${p.topic}|Impr:${p.totals?.impressions||0}|Eng:${engRateFrom(p.totals,[]).toFixed(1)}%|Comm:${p.totals?.comments||0}|Saves:${p.totals?.saves||0}`).join("\n");
+    const sentBlock=hasSentiment?`LIVE SENTIMENT:\nBrand Mgmt: ${sentiment.domains.brandManagement?.sentiment} — ${sentiment.domains.brandManagement?.dominantTheme}\nAdvertising: ${sentiment.domains.advertising?.sentiment} — ${sentiment.domains.advertising?.dominantTheme}\nConsulting: ${sentiment.domains.consulting?.sentiment} — ${sentiment.domains.consulting?.dominantTheme}\nProduct Mktg: ${sentiment.domains.productMarketing?.sentiment} — ${sentiment.domains.productMarketing?.dominantTheme}\nOpportunity: ${sentiment.contentOpportunity}`:"No sentiment data.";
+
+    const sys=`You are a LinkedIn content strategist. Respond ONLY with valid JSON, no other text.`;
+    const usr=`Sidharth Marri, brand strategist at IIM Kozhikode, ~2,450 connections, avg eng rate ${avgEng.toFixed(1)}%. Today: ${TODAY}.
+
+PERFORMANCE:\n${perfSummary||"No posts yet"}
+
+UPCOMING CALENDAR:\n${upcoming}
+
+${sentBlock}
+
+Decide what he should write next. Options:
+1. write_scheduled — write one of the upcoming scheduled posts (best fit for current moment)
+2. write_new — current discourse demands a post NOT in the calendar
+3. modify_and_write — modify an upcoming post's angle to fit current sentiment, then write it
+
+Return this JSON:
+{
+  "action": "write_scheduled|write_new|modify_and_write",
+  "calDate": "YYYY-MM-DD or null",
+  "topic": "exact topic to write",
+  "category": "Branding|Consulting|Congruence",
+  "type": "Deep|Sharp",
+  "sentimentReason": "which signal makes this the right post RIGHT NOW",
+  "urgency": "high|medium|low",
+  "beforeTopic": "original calendar topic if modifying, else null",
+  "beforeAngle": "original planned angle if modifying, else null",
+  "afterAngle": "revised angle given current sentiment, else null",
+  "modifications": [{"date":"YYYY-MM-DD","type":"note|priority|topic","value":"...","sentimentReason":"..."}]
+}`;
+
+    try{
+      const raw=await callClaude(sys,usr,1000);
+      const clean=raw.replace(/^```json\s*/i,"").replace(/\s*```$/i,"").trim();
+      const parsed=JSON.parse(clean.slice(clean.indexOf("{"),clean.lastIndexOf("}")+1));
+      setRec(parsed);
+      setDraft(d=>({...d,topic:parsed.topic||"",category:parsed.category||"Congruence",type:parsed.type||"Deep",calDate:parsed.calDate||"",hashtags:""}));
+      if(parsed.beforeTopic&&parsed.afterAngle){
+        setComparison({before:{topic:parsed.beforeTopic,angle:parsed.beforeAngle||"Original planned angle"},after:{topic:parsed.topic,angle:parsed.afterAngle,reason:parsed.sentimentReason}});
+      }
+      if(parsed.modifications?.length&&mods){
+        // Store pending mods for user to apply
+        setRec(r=>({...r,pendingMods:parsed.modifications}));
+      }
+      setStep("editing");
+    }catch(e){setRec({error:String(e)});}
+    setRecLoading(false);
+  };
+
+  const generateDraft=async()=>{
+    if(!draft.topic) return;
+    setGenLoading(true);
+    const sentCtx=hasSentiment?`Current ${draft.category} discourse: ${sentiment.domains[{Branding:"brandManagement",Consulting:"consulting",Congruence:"brandManagement"}[draft.category]]?.dominantTheme||""}. Hot debate: ${sentiment.domains[{Branding:"brandManagement",Consulting:"consulting",Congruence:"brandManagement"}[draft.category]]?.hotDebate||""}.`:"";
+    const usr=`Write a LinkedIn ${draft.type} post (${ideal[0]}-${ideal[1]} words) on this topic:\n"${draft.topic}"\n\nCategory: ${draft.category}\n${sentCtx}\n\nRecent posts for voice reference:\n${posts.slice(0,2).map(p=>p.topic).join("\n")}\n\nWrite only the post content. End with hashtags on a separate line.`;
+    try{
+      const raw=await callClaude(VOICE_SYSTEM,usr,1200);
+      // Split hashtags from content
+      const lines=raw.trim().split("\n");
+      const hashIdx=lines.findLastIndex(l=>l.trim().startsWith("#"));
+      if(hashIdx>0){
+        setDraft(d=>({...d,content:lines.slice(0,hashIdx).join("\n").trim(),hashtags:lines.slice(hashIdx).join("\n").trim()}));
+      } else {
+        setDraft(d=>({...d,content:raw.trim()}));
+      }
+    }catch(e){setDraft(d=>({...d,content:`Generation failed: ${e.message}`}));}
+    setGenLoading(false);
+  };
+
+  const saveDraft=async()=>{
+    const entry={...draft,id:editingId||Date.now().toString(),savedAt:new Date().toISOString()};
+    const next=[...saved.filter(d=>d.id!==entry.id),entry];
+    setSaved(next);await onSaveDrafts(next);
+    setEditingId(entry.id);
+    setSaveMsg("✓ Saved");setTimeout(()=>setSaveMsg(""),2000);
+  };
+
+  const deleteDraft=async(id)=>{const next=saved.filter(d=>d.id!==id);setSaved(next);await onSaveDrafts(next);};
+
+  const loadDraft=d=>{setDraft({...d});setEditingId(d.id);setStep("editing");window.scrollTo(0,0);};
+
+  const copyPost=()=>{
+    const full=draft.content+(draft.hashtags?"\n\n"+draft.hashtags:"");
+    navigator.clipboard?.writeText(full);setCopied(true);setTimeout(()=>setCopied(false),2000);
+  };
+
+  const applyCompareMods=async()=>{
+    if(!rec?.pendingMods?.length) return;
+    const next=[...mods.filter(m=>!rec.pendingMods.find(p=>p.date===m.date)),...rec.pendingMods.map(m=>({date:m.date,note:m.type==="note"?m.value:undefined,priority:m.type==="priority"?m.value:undefined,newTopic:m.type==="topic"?m.value:undefined,sentimentReason:m.sentimentReason,appliedAt:new Date().toISOString()}))];
+    await onSaveMods(next);
+    setRec(r=>({...r,pendingMods:[]}));
+    setSaveMsg("✓ Calendar updated");setTimeout(()=>setSaveMsg(""),2500);
+  };
+
+  const Btn=({onClick,disabled,label,color,small})=><button onClick={onClick} disabled={disabled} style={{background:disabled?T.s3:color||T.blue,color:disabled?T.muted:"#fff",border:"none",borderRadius:7,padding:small?"7px 14px":"10px 18px",fontSize:small?11.5:13,fontWeight:700,cursor:disabled?"default":"pointer",fontFamily:"inherit",transition:"background 0.15s",whiteSpace:"nowrap"}}>{label}</button>;
+
+  return <div>
+    {saveMsg&&<div style={{background:T.greenL,border:`1px solid ${T.green}`,color:T.green,borderRadius:8,padding:"10px 16px",fontSize:13,fontWeight:600,marginBottom:16}}>{saveMsg}</div>}
+
+    <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:20,alignItems:"start"}}>
+      {/* LEFT: Editor */}
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+        {/* Recommendation bar */}
+        <Card style={{padding:"20px 22px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+            <div>
+              <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:15,color:T.text,marginBottom:4}}>
+                {rec&&!rec.error?"AI Recommendation Ready":"What should I write next?"}
+              </div>
+              <div style={{fontSize:12,color:T.muted}}>
+                {hasSentiment?<span>🔍 <strong style={{color:T.green}}>Sentiment-informed</strong> · {sentiment.generatedDate}</span>:<span style={{color:T.amber}}>⚠ Generate a sentiment report first for best results</span>}
+              </div>
+            </div>
+            <Btn onClick={getRecommendation} disabled={recLoading} label={recLoading?"Analysing…":rec?"Refresh Recommendation":"Get AI Recommendation"} color={hasSentiment?T.green:T.blue}/>
+          </div>
+
+          {rec&&!rec.error&&<div style={{marginTop:14,padding:"14px 16px",background:T.s2,borderRadius:9}}>
+            <div style={{display:"flex",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13.5,fontWeight:700,color:T.text,lineHeight:1.4,marginBottom:6}}>{rec.topic}</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                  <Tag cat={rec.category||"Congruence"}/>
+                  <Pill label={rec.type||"Deep"} color={rec.type==="Deep"?T.blue:T.gold} bg={rec.type==="Deep"?T.blueL:T.goldL}/>
+                  <Pill label={rec.urgency==="high"?"🔥 High urgency":rec.urgency==="medium"?"Medium":"Low"} color={rec.urgency==="high"?T.red:T.gold} bg={rec.urgency==="high"?T.redL:T.goldL}/>
+                  {rec.calDate&&<span style={{fontSize:11,color:T.muted}}>📅 {rec.calDate}</span>}
+                </div>
+                {rec.sentimentReason&&<div style={{fontSize:12,color:T.green,background:T.greenL,padding:"6px 10px",borderRadius:7,lineHeight:1.5}}>🔍 {rec.sentimentReason}</div>}
+              </div>
+              <Btn onClick={()=>setStep("editing")} label="Use this →" small/>
+            </div>
+          </div>}
+          {rec?.error&&<div style={{marginTop:10,fontSize:12,color:T.red,background:T.redL,padding:"8px 12px",borderRadius:7}}>{rec.error}</div>}
+        </Card>
+
+        {/* Post Editor */}
+        <Card style={{padding:"22px"}}>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:14,color:T.text,marginBottom:14}}>
+            Post Editor {editingId&&<span style={{fontSize:11,fontWeight:500,color:T.muted,marginLeft:6}}>— editing saved draft</span>}
+          </div>
+
+          {/* Topic + meta row */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:10,marginBottom:12}}>
+            <input value={draft.topic} onChange={e=>setDraft(d=>({...d,topic:e.target.value}))} placeholder="Post topic…" style={{border:`1px solid ${T.border}`,borderRadius:7,padding:"9px 12px",fontSize:13,color:T.text,fontFamily:"inherit",outline:"none",background:T.surface}}/>
+            <select value={draft.type} onChange={e=>setDraft(d=>({...d,type:e.target.value}))} style={{border:`1px solid ${T.border}`,borderRadius:7,padding:"9px 10px",fontSize:12.5,color:T.text,fontFamily:"inherit",outline:"none",background:T.surface}}>
+              <option>Deep</option><option>Sharp</option>
+            </select>
+            <select value={draft.category} onChange={e=>setDraft(d=>({...d,category:e.target.value}))} style={{border:`1px solid ${T.border}`,borderRadius:7,padding:"9px 10px",fontSize:12.5,color:T.text,fontFamily:"inherit",outline:"none",background:T.surface}}>
+              <option>Congruence</option><option>Branding</option><option>Consulting</option>
+            </select>
+          </div>
+
+          {/* Generate button */}
+          <div style={{marginBottom:12}}>
+            <Btn onClick={generateDraft} disabled={genLoading||!draft.topic} label={genLoading?"Generating in Sidharth's voice…":"✨ Generate Draft"} color={T.purple}/>
+            {draft.topic&&<span style={{fontSize:11,color:T.muted,marginLeft:12}}>{ideal[0]}–{ideal[1]} words for a {draft.type} post</span>}
+          </div>
+
+          {/* Content textarea */}
+          <textarea value={draft.content} onChange={e=>setDraft(d=>({...d,content:e.target.value}))} placeholder={`Write your ${draft.type==="Deep"?"deep (300-450 word)":"sharp (80-150 word)"} post here, or click Generate above…`}
+            style={{width:"100%",minHeight:draft.type==="Deep"?320:160,border:`1px solid ${inRange?T.green:T.border}`,borderRadius:9,padding:"14px 16px",fontSize:13.5,color:T.text,fontFamily:"Helvetica, Arial, sans-serif",outline:"none",lineHeight:1.75,resize:"vertical",background:T.surface,transition:"border-color 0.2s"}}/>
+
+          {/* Word/char count bar */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6,marginBottom:12}}>
+            <div style={{display:"flex",gap:12,fontSize:12}}>
+              <span style={{color:rangeColor,fontWeight:700}}>{words} words</span>
+              <span style={{color:T.muted}}>{chars} chars</span>
+              <span style={{color:rangeColor,fontWeight:600}}>{inRange?"✓ In range":words<ideal[0]?`${ideal[0]-words} more needed`:`${words-ideal[1]} over limit`}</span>
+            </div>
+            <div style={{fontSize:11,color:T.muted}}>{draft.type==="Deep"?"300–450 words":"80–150 words"}</div>
+          </div>
+
+          {/* Hashtags */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11.5,fontWeight:700,color:T.sec,marginBottom:5}}>Hashtags</div>
+            <input value={draft.hashtags} onChange={e=>setDraft(d=>({...d,hashtags:e.target.value}))} placeholder="#BrandStrategy #Branding #IndianMarketing #Marketing #Advertising" style={{width:"100%",border:`1px solid ${T.border}`,borderRadius:7,padding:"9px 12px",fontSize:12.5,color:T.sec,fontFamily:"inherit",outline:"none",background:T.s2}}/>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <Btn onClick={saveDraft} disabled={!draft.content} label="Save Draft" color={T.blue}/>
+            <Btn onClick={copyPost} disabled={!draft.content} label={copied?"Copied!":"Copy Full Post"} color={T.green}/>
+            <Btn onClick={()=>{setDraft({id:"",topic:"",content:"",hashtags:"",category:"Congruence",type:"Deep",calDate:""});setEditingId(null);}} disabled={false} label="Clear" color={T.muted} small/>
+          </div>
+        </Card>
+
+        {/* Before / After comparison */}
+        {comparison&&<Card style={{padding:"22px"}}>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:14,color:T.text,marginBottom:14}}>Before / After</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <div style={{background:T.redL,borderRadius:9,padding:"14px 16px",borderLeft:`3px solid ${T.red}`}}>
+              <div style={{fontSize:10.5,fontWeight:700,color:T.red,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Before (Original Plan)</div>
+              <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:6,lineHeight:1.4}}>{comparison.before.topic}</div>
+              <div style={{fontSize:12,color:T.sec,lineHeight:1.55}}>{comparison.before.angle}</div>
+            </div>
+            <div style={{background:T.greenL,borderRadius:9,padding:"14px 16px",borderLeft:`3px solid ${T.green}`}}>
+              <div style={{fontSize:10.5,fontWeight:700,color:T.green,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>After (AI Suggested)</div>
+              <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:6,lineHeight:1.4}}>{comparison.after.topic}</div>
+              <div style={{fontSize:12,color:T.sec,lineHeight:1.55}}>{comparison.after.angle}</div>
+              {comparison.after.reason&&<div style={{marginTop:8,fontSize:11.5,color:T.green,fontWeight:600}}>→ {comparison.after.reason}</div>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            {rec?.pendingMods?.length>0&&<Btn onClick={applyCompareMods} label={`Apply ${rec.pendingMods.length} calendar change${rec.pendingMods.length>1?"s":""}`} color={T.purple}/>}
+            <Btn onClick={()=>setComparison(null)} label="Dismiss" color={T.muted} small/>
+          </div>
+        </Card>}
+      </div>
+
+      {/* RIGHT: Saved Drafts + Schedule */}
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+        {/* Smart schedule */}
+        <Card style={{padding:"18px 20px"}}>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13.5,color:T.text,marginBottom:10}}>📅 Smart Schedule</div>
+          <div style={{fontSize:12,color:T.sec,marginBottom:10,lineHeight:1.6}}>
+            Best day: <strong style={{color:T.blue}}>{schedule.bestDay}</strong> · Best time: <strong style={{color:T.blue}}>{schedule.bestTime} IST</strong>
+          </div>
+          {Object.keys(schedule.engByDay).length>0&&<div style={{marginBottom:10}}>
+            <div style={{fontSize:10.5,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>Engagement by day</div>
+            {Object.entries(schedule.engByDay).sort((a,b)=>b[1].eng-a[1].eng).slice(0,5).map(([day,d])=><div key={day} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,color:T.sec,fontWeight:600}}>{day}</span>
+              <span style={{fontSize:12,color:T.blue,fontWeight:700}}>{d.eng} eng · {fn(d.imp)} impr</span>
+            </div>)}
+          </div>}
+          {nextUnpublished&&Object.keys(schedule.suggestions).length>0&&schedule.suggestions[nextUnpublished.date]?.diff&&<div style={{background:T.amberL,borderRadius:7,padding:"8px 10px",fontSize:11.5,color:T.amber,lineHeight:1.5}}>
+            ⚡ Next post: {schedule.suggestions[nextUnpublished.date]?.diff}
+          </div>}
+          {!Object.keys(schedule.engByDay).length&&<div style={{fontSize:12,color:T.muted}}>Upload weekly reports to see engagement-by-day analysis.</div>}
+        </Card>
+
+        {/* Saved Drafts */}
+        <Card style={{padding:"18px 20px"}}>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13.5,color:T.text,marginBottom:12}}>Saved Drafts ({saved.length})</div>
+          {!saved.length&&<div style={{fontSize:12.5,color:T.muted,textAlign:"center",padding:"20px 0"}}>No drafts saved yet. Write a post and click Save Draft.</div>}
+          <div style={{maxHeight:500,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
+            {[...saved].reverse().map((d,i)=><div key={i} style={{background:editingId===d.id?T.blueL:T.s2,borderRadius:9,padding:"12px 14px",border:editingId===d.id?`1px solid ${T.blue}`:`1px solid transparent`}}>
+              <div style={{fontSize:12.5,fontWeight:700,color:T.text,lineHeight:1.3,marginBottom:5}}>{d.topic||"Untitled"}</div>
+              <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                <Tag cat={d.category||"Congruence"}/>
+                <Pill label={d.type||"Deep"} color={d.type==="Deep"?T.blue:T.gold} bg={d.type==="Deep"?T.blueL:T.goldL}/>
+                <span style={{fontSize:10.5,color:T.muted}}>{d.savedAt?.slice(0,10)||""}</span>
+              </div>
+              <div style={{fontSize:11.5,color:T.sec,lineHeight:1.5,marginBottom:8,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{d.content}</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>loadDraft(d)} style={{fontSize:11,color:T.blue,background:"none",border:`1px solid ${T.blue}`,borderRadius:5,padding:"3px 9px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Edit</button>
+                <button onClick={()=>{navigator.clipboard?.writeText(d.content+(d.hashtags?"\n\n"+d.hashtags:""));}} style={{fontSize:11,color:T.green,background:"none",border:`1px solid ${T.green}`,borderRadius:5,padding:"3px 9px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Copy</button>
+                <button onClick={()=>deleteDraft(d.id)} style={{fontSize:11,color:T.muted,background:"none",border:`1px solid ${T.border}`,borderRadius:5,padding:"3px 9px",cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+              </div>
+            </div>)}
+          </div>
+        </Card>
+      </div>
+    </div>
+  </div>;
+}
+
 /* ── MAIN ────────────────────────────────────────────────────────────────── */
 export default function App(){
   const [tab,setTab]=useState("overview");
@@ -1273,12 +1628,13 @@ export default function App(){
   const [followers,setFollowers]=useState([]);
   const [mods,setMods]=useState([]);
   const [sentiment,setSentiment]=useState(null);
-  const [sentimentStatus,setSentimentStatus]=useState("idle"); // idle|loading|done|error
+  const [sentimentStatus,setSentimentStatus]=useState("idle");
+  const [drafts,setDrafts]=useState([]);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    Promise.all([sg(KEY.posts),sg(KEY.weekly),sg(KEY.followers),sg(KEY.mods),sg(KEY.sentiment)])
-      .then(([p,w,f,m,s])=>{setPosts(p);setWeekly(w);setFollowers(f);setMods(m);if(s&&!Array.isArray(s))setSentiment(s);})
+    Promise.all([sg(KEY.posts),sg(KEY.weekly),sg(KEY.followers),sg(KEY.mods),sg(KEY.sentiment),sg(KEY.drafts)])
+      .then(([p,w,f,m,s,d])=>{setPosts(p);setWeekly(w);setFollowers(f);setMods(m);if(s&&!Array.isArray(s))setSentiment(s);if(Array.isArray(d))setDrafts(d);})
       .finally(()=>setLoading(false));
   },[]);
 
@@ -1286,6 +1642,7 @@ export default function App(){
   const saveWeekly=useCallback(async e=>{const n=[...weekly.filter(w=>w.id!==e.id),e];setWeekly(n);await ss(KEY.weekly,n);},[weekly]);
   const saveFollower=useCallback(async e=>{const n=[...followers.filter(f=>f.id!==e.id),e];setFollowers(n);await ss(KEY.followers,n);},[followers]);
   const saveMods=useCallback(async m=>{setMods(m);await ss(KEY.mods,m);},[]);
+  const saveDrafts=useCallback(async d=>{setDrafts(d);await ss(KEY.drafts,d);},[]);
   const handleSentiment=useCallback(async(data,status)=>{
     setSentimentStatus(status);
     if(data&&status==="done"){setSentiment(data);await ss(KEY.sentiment,data);}
@@ -1302,22 +1659,23 @@ export default function App(){
     {id:"reports",icon:"📁",label:"Reports"},
     {id:"progress",icon:"📈",label:"Progress"},
     {id:"content",icon:"📅",label:"Content Plan"},
+    {id:"planner",icon:"✍️",label:"AI Planner"},
     {id:"sentiment",icon:"🔍",label:"Sentiment"},
   ];
 
-  if(loading) return <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif"}}><div style={{textAlign:"center",color:T.muted,fontSize:14}}>Loading your dashboard…</div></div>;
+  if(loading) return <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Helvetica, Arial, sans-serif"}}><div style={{textAlign:"center",color:T.muted,fontSize:14}}>Loading your dashboard…</div></div>;
 
-  return <div style={{background:T.bg,minHeight:"100vh",fontFamily:"'Inter',sans-serif",color:T.text}}>
-    <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box;margin:0;padding:0;}::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px;}`}</style>
+  return <div style={{background:T.bg,minHeight:"100vh",fontFamily:"Helvetica, Arial, sans-serif",color:T.text}}>
+    <style>{`/* System fonts — no import needed */*{box-sizing:border-box;margin:0;padding:0;}::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px;}`}</style>
 
     {/* Header */}
     <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
       <div style={{display:"flex",alignItems:"center",gap:11,padding:"13px 0"}}>
         <div style={{width:32,height:32,background:T.blue,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <span style={{color:"#fff",fontSize:16,fontWeight:800,fontFamily:"'Syne',sans-serif"}}>in</span>
+          <span style={{color:"#fff",fontSize:16,fontWeight:800,fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif"}}>in</span>
         </div>
         <div>
-          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,color:T.text}}>LinkedIn Analytics</div>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:15,color:T.text,letterSpacing:"-0.01em"}}>Sidharth Marri | AI-powered LinkedIn Dashboard</div>
           <div style={{fontSize:10,color:T.muted}}>Sidharth Marri · {posts.length} posts · {weekly.length} weeks · {mods.length} mods · {sentiment?.generatedDate?`Sentiment ${sentiment.generatedDate}`:"No sentiment report yet"}</div>
         </div>
       </div>
@@ -1328,13 +1686,14 @@ export default function App(){
 
     <div style={{maxWidth:1160,margin:"0 auto",padding:"26px 22px 80px"}}>
       <div style={{marginBottom:20}}>
-        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:21,color:T.text,letterSpacing:"-0.02em"}}>{navTabs.find(t=>t.id===tab)?.label}</div>
-        <div style={{fontSize:12,color:T.muted,marginTop:2}}>{{overview:"Master tracker — all performance data and benchmarks at a glance",reports:"Upload new exports — each type has its own flow and data preview",progress:"Week-over-week trends and audience evolution",content:"17-week calendar with live status, hashtags, and AI recommendations",sentiment:"Weekly sentiment pulse across Brand Management, Advertising, Consulting, and Product Marketing"}[tab]}</div>
+        <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:21,color:T.text,letterSpacing:"-0.02em"}}>{navTabs.find(t=>t.id===tab)?.label}</div>
+        <div style={{fontSize:12,color:T.muted,marginTop:2}}>{{overview:"Master tracker — all performance data and benchmarks at a glance",reports:"Upload new exports — each type has its own flow and data preview",progress:"Week-over-week trends and audience evolution",content:"17-week calendar with live status, hashtags, and AI recommendations",planner:"Write, edit, and save your LinkedIn posts — AI-assisted in your voice",sentiment:"Weekly sentiment pulse across Brand Management, Advertising, Consulting, and Product Marketing"}[tab]}</div>
       </div>
       {tab==="overview"&&<Overview posts={posts} weekly={weekly} followers={followers}/>}
       {tab==="reports"&&<Reports posts={posts} weekly={weekly} followers={followers} onSavePost={savePost} onSaveWeekly={saveWeekly} onSaveFollower={saveFollower} onDelete={delEntry}/>}
       {tab==="progress"&&<Progress posts={posts} weekly={weekly} followers={followers}/>}
       {tab==="content"&&<ContentPlan posts={posts} mods={mods} onSaveMods={saveMods} sentiment={sentiment}/>}
+      {tab==="planner"&&<AIPlanner posts={posts} weekly={weekly} sentiment={sentiment} mods={mods} onSaveMods={saveMods} drafts={drafts} onSaveDrafts={saveDrafts}/>}
       {tab==="sentiment"&&<SentimentReport data={sentiment} loading={sentimentStatus==="loading"} onGenerate={handleSentiment} posts={posts}/>}
     </div>
   </div>;
