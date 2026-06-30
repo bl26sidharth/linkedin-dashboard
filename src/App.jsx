@@ -23,7 +23,7 @@ const BENCH = {
   saves:{label:"Saves/Post",avg:2,good:5,excellent:10,unit:""},
   followers:{label:"Followers/Post",avg:2,good:6,excellent:12,unit:""},
 };
-const TODAY = "2026-06-25";
+const TODAY = new Date().toISOString().slice(0,10); // dynamic — always current date
 const KEY = {posts:"li_p3",weekly:"li_w3",followers:"li_f3",mods:"li_m3",sentiment:"li_s3",drafts:"li_d3"};
 
 const DOMAINS = [
@@ -959,21 +959,34 @@ Every point must be tied to either a specific performance number or a specific s
           </div>
         </Card>}
 
-        {/* Next up card */}
-        {nextPost&&<Card style={{padding:"16px 18px",borderLeft:`3px solid ${T.blue}`}}>
-          <div style={{fontSize:10,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Next Up</div>
-          <div style={{fontSize:13,fontWeight:700,color:T.text,lineHeight:1.4,marginBottom:6}}>{nextPost.topic}</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-            <Tag cat={nextPost.cat}/>
-            <Pill label={nextPost.type} color={nextPost.type==="Deep"?T.blue:T.gold} bg={nextPost.type==="Deep"?T.blueL:T.goldL}/>
-            <StatusBadge status={getStatus(nextPost)}/>
+        {/* Next up: 2 choices */}
+        <Card style={{padding:"16px 18px"}}>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13,color:T.text,marginBottom:12}}>Next Up — 2 Options</div>
+
+          {/* Option 1: From calendar */}
+          {nextPost&&<div style={{marginBottom:10,padding:"12px 14px",background:T.blueL,borderRadius:9,borderLeft:`3px solid ${T.blue}`}}>
+            <div style={{fontSize:10,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>📅 From Your Calendar</div>
+            <div style={{fontSize:12.5,fontWeight:700,color:T.text,lineHeight:1.35,marginBottom:5}}>{nextPost.topic}</div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:5}}>
+              <Tag cat={nextPost.cat}/>
+              <Pill label={nextPost.type} color={nextPost.type==="Deep"?T.blue:T.gold} bg={nextPost.type==="Deep"?T.blueL:T.goldL}/>
+              <StatusBadge status={getStatus(nextPost)}/>
+            </div>
+            <div style={{fontSize:11,color:T.muted}}>📅 {nextPost.date} · {nextPost.pillar}</div>
+          </div>}
+
+          {/* Option 2: AI recommended from sentiment */}
+          <div style={{padding:"12px 14px",background:T.greenL,borderRadius:9,borderLeft:`3px solid ${T.green}`}}>
+            <div style={{fontSize:10,fontWeight:700,color:T.green,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>🔍 AI Recommended</div>
+            {hasSentiment&&sentiment.contentOpportunity
+              ?<>
+                <div style={{fontSize:12.5,fontWeight:700,color:T.text,lineHeight:1.35,marginBottom:5}}>{sentiment.contentOpportunity.slice(0,80)}{sentiment.contentOpportunity.length>80?"…":""}</div>
+                <div style={{fontSize:11.5,color:T.sec,lineHeight:1.5,marginBottom:5}}>{sentiment.audienceSignal?.slice(0,100)}{(sentiment.audienceSignal?.length||0)>100?"…":""}</div>
+                <div style={{fontSize:11,color:T.green,fontWeight:600}}>Based on {sentiment.generatedDate} sentiment report</div>
+              </>
+              :<div style={{fontSize:12,color:T.muted}}>Generate a sentiment report to see AI-recommended alternatives.</div>}
           </div>
-          <div style={{fontSize:11,color:T.muted,lineHeight:1.8}}>
-            <div>📅 {nextPost.date} ({nextPost.day})</div>
-            <div>🏷 {nextPost.pillar}</div>
-          </div>
-          <div style={{marginTop:8,padding:"7px 10px",background:T.s2,borderRadius:7,fontSize:10.5,color:T.sec,lineHeight:1.7,fontStyle:"italic"}}>{nextPost.hashtags}</div>
-        </Card>}
+        </Card>
 
         {/* AI planner card */}
         <Card style={{padding:"16px 18px",flex:1}}>
@@ -1148,13 +1161,19 @@ Return this exact JSON structure:
     }
   };
 
-  return <div>
     {/* Header bar */}
+    const nextRefresh = data?.generatedDate ? (() => {
+      const d = new Date(data.generatedDate); d.setDate(d.getDate()+7);
+      return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+    })() : null;
+
+    return <div>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
       <div>
         <div style={{fontSize:12.5,color:T.muted}}>
-          {hasData?`Last generated: ${data.generatedDate} · ${data.weekOf||""}`:loading?"Searching LinkedIn and professional media…":"Not yet generated this week"}
+          {hasData?`Generated: ${data.generatedDate} · ${data.weekOf||""}`:loading?"Searching professional media…":"Not yet generated this week"}
         </div>
+        {nextRefresh&&<div style={{fontSize:11.5,color:T.amber,marginTop:3,fontWeight:600}}>🔄 Next refresh due: {nextRefresh}</div>}
         {hasData&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>Brand Management · Advertising · Consulting · Product Marketing</div>}
       </div>
       <button onClick={generate} disabled={loading} style={{background:loading?T.s3:T.blue,color:loading?T.muted:"#fff",border:"none",borderRadius:8,padding:"10px 22px",fontSize:13,fontWeight:700,cursor:loading?"default":"pointer",fontFamily:"inherit",transition:"background 0.15s"}}>
@@ -1266,81 +1285,100 @@ Return this exact JSON structure:
 }
 
 /* ── DYNAMIC SCHEDULING ──────────────────────────────────────────────────── */
+// LinkedIn research-backed best posting windows (IST)
+const LI_BEST_TIMES = {Mon:"10:30 AM",Tue:"10:00 AM",Wed:"10:00 AM",Thu:"11:00 AM",Fri:"9:00 AM",Sat:"9:00 AM",Sun:"9:00 AM"};
+const LI_DAY_RANK   = {Mon:1,Thu:2,Tue:3,Wed:4,Fri:5,Sat:6,Sun:7}; // LinkedIn engagement rank
+
 function computeBestSchedule(posts, weekly) {
-  // Derive best day-of-week and time from uploaded data
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const engByDay = {};
+
+  // Build engagement profile from uploaded weekly data
   for(const w of weekly){
     for(const d of w.dayData){
-      // Parse "Jun 16" style dates
       const parts = d.date?.split(" ");
       if(!parts||parts.length<2) continue;
-      const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+      const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
       const m=months[parts[0]]; const day=parseInt(parts[1]);
       if(isNaN(m)||isNaN(day)) continue;
-      const dt = new Date(2026,m,day);
-      const dn = DAY_NAMES[dt.getDay()];
+      const dt=new Date(2026,m,day);
+      const dn=DAY_NAMES[dt.getDay()];
       if(!engByDay[dn]) engByDay[dn]={eng:0,imp:0,count:0};
       engByDay[dn].eng+=d.engagements; engByDay[dn].imp+=d.impressions; engByDay[dn].count++;
     }
   }
-  const bestDay = Object.entries(engByDay).sort((a,b)=>b[1].eng-a[1].eng)[0]?.[0]||"Mon";
-  const bestTime = "11:00 AM"; // Default from post 1 performance
-  const gapDays = 3; // From second-wave analysis: don't post within 3 days of previous
+
+  // Best day: data-driven if we have enough, otherwise LinkedIn research default
+  const rankedByData = Object.entries(engByDay).sort((a,b)=>b[1].eng-a[1].eng);
+  const bestDay = rankedByData[0]?.[0]||"Mon";
+  const secondBest = rankedByData[1]?.[0]||"Thu";
+  const bestTime = LI_BEST_TIMES[bestDay]||"10:30 AM";
+
+  // Real-time next posting window
+  const now = new Date();
+  const todayName = DAY_NAMES[now.getDay()];
+  const todayISO = now.toISOString().slice(0,10);
+  const currentHour = now.getHours();
   
-  // Compute suggested dates for upcoming CAL posts
+  // Is today a good posting day and is morning still available?
+  const goodToday = (todayName==="Mon"||todayName==="Thu") && currentHour<12;
+  const nextWindow = goodToday
+    ? {date:todayISO, day:todayName, time:bestTime, label:"Today morning"}
+    : (() => {
+        // Find next Mon or Thu
+        let d = new Date(now); d.setDate(d.getDate()+1);
+        while(d.getDay()!==1&&d.getDay()!==4) d.setDate(d.getDate()+1);
+        const dn=DAY_NAMES[d.getDay()];
+        return {date:d.toISOString().slice(0,10),day:dn,time:LI_BEST_TIMES[dn],label:`${dn} ${d.toLocaleDateString("en-IN",{day:"numeric",month:"short"})} at ${LI_BEST_TIMES[dn]} IST`};
+      })();
+
+  // Suggest dates for upcoming calendar posts
   const suggestions = {};
-  const pubDates = posts.map(p=>p.date).filter(Boolean).sort();
-  let lastPostDate = pubDates[pubDates.length-1]||TODAY;
-  
-  const DAYS_TO_NUM = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
-  
-  CAL.filter(c=>c.date>TODAY).forEach((c,i)=>{
-    // Find next Mon or Thu after lastPostDate + gapDays
-    const after = new Date(lastPostDate);
-    after.setDate(after.getDate()+gapDays);
-    const target = c.day==="Mon"?1:4; // Mon=1, Thu=4
-    let d = new Date(after);
+  let lastDate = posts.map(p=>p.date).filter(Boolean).sort().pop()||todayISO;
+  CAL.filter(c=>c.date>=todayISO).forEach(c=>{
+    let d = new Date(lastDate); d.setDate(d.getDate()+3);
+    const target=c.day==="Mon"?1:4;
     while(d.getDay()!==target) d.setDate(d.getDate()+1);
-    const iso = d.toISOString().slice(0,10);
-    const diff = c.date!==iso?`Suggested ${iso.slice(5).replace("-","/")} vs planned ${c.date.slice(5).replace("-","/")}`:null;
-    suggestions[c.date] = {suggestedDate:iso, diff, time:bestTime};
-    lastPostDate = iso;
+    const iso=d.toISOString().slice(0,10);
+    const time=LI_BEST_TIMES[c.day]||"10:30 AM";
+    suggestions[c.date]={suggestedDate:iso,time,changed:iso!==c.date,label:`${iso.slice(5).replace("-","/")} at ${time} IST`};
+    lastDate=iso;
   });
-  
-  return {bestDay,bestTime,gapDays,suggestions,engByDay};
+
+  return {bestDay,secondBest,bestTime,engByDay,nextWindow,suggestions,dataPoints:Object.values(engByDay).reduce((s,d)=>s+d.count,0)};
 }
 
 /* ── AI PLANNER ──────────────────────────────────────────────────────────── */
-const VOICE_SYSTEM = `You are writing LinkedIn posts for Sidharth Marri — brand strategist, 4 years experience at Peter England, Max Fashion, American Eagle, Nalli Silk Sarees, MTR Foods, and other Indian consumer brands. Currently at IIM Kozhikode PGP-BL Class 2027.
+const VOICE_SYSTEM = `You are writing LinkedIn posts for a brand strategist based in India who writes at the intersection of brand thinking and consulting strategy.
 
-HIS VOICE (follow strictly):
-- Opens with first-person observations: "Something I find genuinely interesting:", "I've been thinking about this:", "What I find hard to fully explain is..."
-- Humble register: "seems to", "I think", "as far as I can piece together", "probably"
-- Always gives a conclusion — never ends with an open question to the reader
-- NO em dashes anywhere. Use commas, periods, or new sentences instead
-- Short paragraphs of 2-4 sentences
-- Real, specific examples — never vague generalisations
-- India-first lens by default when possible
-- Never sounds like a know-it-all — sounds like someone learning faster than average
-- Never uses: "honestly", "genuinely", "straightforward" as filler words
-- Never uses buzzwords without unpacking them
-- Professional but not corporate
+VOICE — follow strictly:
+- Opens with first-person observation: "Something I find genuinely interesting:", "I've been thinking about this:", "What I find hard to fully explain is...", "I've been trying to understand..."
+- Humble but precise register: "seems to", "I think", "as far as I can piece together", "probably", "appears to"
+- Always delivers a conclusion. Never ends on an open question to the reader
+- NO em dashes anywhere. Use commas, periods, colons, or break into new sentences
+- Short paragraphs — 2 to 4 sentences each. Never a wall of text
+- Specific, named examples. Never generic ("a brand I know" is weak; "Fevicol" or "Amul" is strong)
+- India-first context by default when a local example serves the point
+- The register is someone who is learning fast and sharing observations, not pronouncing verdicts
+- Never uses "honestly", "genuinely", "straightforward", "authentically", "impactful" as filler
+- Never opens with a rhetorical question
+- Never uses emojis in the post body
 
 FORMAT:
-- Deep post (Monday): 300-450 words, builds one insight with depth
-- Sharp post (Thursday): 80-150 words, one punchy observation
-- Paragraphs separated by single blank lines
-- Hashtags on a final separate line (5 hashtags max)
-- Write ONLY the post — no title, no preamble, no explanation`;
+- Deep post (Monday): 300 to 450 words. One insight developed with depth and a specific example
+- Sharp post (Thursday): 80 to 150 words. One punchy observation. One clean conclusion
+- Paragraphs separated by a single blank line
+- Hashtags on the final line only, separated from body by a blank line, maximum 5 tags
+- Write ONLY the post content — no subject line, no preamble, no explanation after`;
 
 function AIPlanner({posts,weekly,sentiment,mods,onSaveMods,drafts,onSaveDrafts}){
-  const [step,setStep]=useState("idle"); // idle|recommending|editing|comparing
+  const [step,setStep]=useState("idle");
   const [recLoading,setRecLoading]=useState(false);
-  const [rec,setRec]=useState(null); // {topic, calDate, action, sentimentReason, type, category}
+  const [recs,setRecs]=useState([]); // array of 4 recommendations
+  const [selectedRec,setSelectedRec]=useState(null);
   const [genLoading,setGenLoading]=useState(false);
   const [draft,setDraft]=useState({id:"",topic:"",content:"",hashtags:"",category:"Congruence",type:"Deep",calDate:""});
-  const [comparison,setComparison]=useState(null); // {before:{topic,angle}, after:{topic,angle,reason}}
+  const [comparison,setComparison]=useState(null);
   const [saved,setSaved]=useState(drafts||[]);
   const [editingId,setEditingId]=useState(null);
   const [copied,setCopied]=useState(false);
@@ -1359,58 +1397,76 @@ function AIPlanner({posts,weekly,sentiment,mods,onSaveMods,drafts,onSaveDrafts})
   const pubTopics=new Set(posts.map(p=>p.topic?.toLowerCase().trim()));
   const nextUnpublished=CAL.find(c=>c.date>=TODAY&&!pubTopics.has(c.topic.toLowerCase().trim()));
 
-  const getRecommendation=async()=>{
-    setRecLoading(true);setRec(null);setComparison(null);
-    const upcoming=CAL.filter(c=>c.date>=TODAY&&!pubTopics.has(c.topic.toLowerCase().trim())).slice(0,6)
-      .map(c=>`${c.date}|${c.day}|${c.type}|${c.cat}|${c.topic}`).join("\n");
-    const perfSummary=posts.map(p=>`${p.date}|${p.topic}|Impr:${p.totals?.impressions||0}|Eng:${engRateFrom(p.totals,[]).toFixed(1)}%|Comm:${p.totals?.comments||0}|Saves:${p.totals?.saves||0}`).join("\n");
-    const sentBlock=hasSentiment?`LIVE SENTIMENT:\nBrand Mgmt: ${sentiment.domains.brandManagement?.sentiment} — ${sentiment.domains.brandManagement?.dominantTheme}\nAdvertising: ${sentiment.domains.advertising?.sentiment} — ${sentiment.domains.advertising?.dominantTheme}\nConsulting: ${sentiment.domains.consulting?.sentiment} — ${sentiment.domains.consulting?.dominantTheme}\nProduct Mktg: ${sentiment.domains.productMarketing?.sentiment} — ${sentiment.domains.productMarketing?.dominantTheme}\nOpportunity: ${sentiment.contentOpportunity}`:"No sentiment data.";
+  // Target audience descriptor for recommendations
+  const TARGET_AUDIENCE = "Brand Managers, Marketing Heads, CMOs, CEOs, Strategy Consultants, Managing Partners, Vice Presidents, Product Marketing Managers";
 
-    const sys=`You are a LinkedIn content strategist. Respond ONLY with valid JSON, no other text.`;
-    const usr=`Sidharth Marri, brand strategist at IIM Kozhikode, ~2,450 connections, avg eng rate ${avgEng.toFixed(1)}%. Today: ${TODAY}.
+  const getRecommendations=async()=>{
+    setRecLoading(true);setRecs([]);setSelectedRec(null);setComparison(null);
+    const upcoming=CAL.filter(c=>c.date>=TODAY&&!pubTopics.has(c.topic.toLowerCase().trim())).slice(0,8)
+      .map(c=>`${c.date}|${c.day}|${c.type}|${c.cat}|${c.pillar}|${c.topic}`).join("\n");
+    const perfSummary=posts.map(p=>`${p.date}|${p.topic}|Impr:${p.totals?.impressions||0}|Eng:${engRateFrom(p.totals,[]).toFixed(1)}%|Comm:${p.totals?.comments||0}|Saves:${p.totals?.saves||0}|Followers:${p.totals?.newFollowers||0}`).join("\n")||"No posts uploaded yet.";
+    const sentBlock=hasSentiment?`LIVE SENTIMENT (${sentiment.generatedDate}):
+Brand Mgmt: ${sentiment.domains.brandManagement?.sentiment?.toUpperCase()} — ${sentiment.domains.brandManagement?.dominantTheme}
+Advertising: ${sentiment.domains.advertising?.sentiment?.toUpperCase()} — ${sentiment.domains.advertising?.dominantTheme}
+Consulting: ${sentiment.domains.consulting?.sentiment?.toUpperCase()} — ${sentiment.domains.consulting?.dominantTheme}
+Product Mktg: ${sentiment.domains.productMarketing?.sentiment?.toUpperCase()} — ${sentiment.domains.productMarketing?.dominantTheme}
+Hot debates: ${[sentiment.domains.brandManagement?.hotDebate,sentiment.domains.advertising?.hotDebate].filter(Boolean).join(" | ")}
+Opportunity: ${sentiment.contentOpportunity}
+Audience signal: ${sentiment.audienceSignal}`:"No sentiment data — base recommendations on calendar and performance only.";
 
-PERFORMANCE:\n${perfSummary||"No posts yet"}
+    const sys=`You are a LinkedIn content strategist. Respond ONLY with valid JSON. No other text.`;
+    const usr=`Brand strategist building a LinkedIn presence in India. Today: ${TODAY}. Avg engagement: ${avgEng.toFixed(1)}%.
+
+TARGET AUDIENCE: ${TARGET_AUDIENCE}
+
+PERFORMANCE DATA:\n${perfSummary}
 
 UPCOMING CALENDAR:\n${upcoming}
 
 ${sentBlock}
 
-Decide what he should write next. Options:
-1. write_scheduled — write one of the upcoming scheduled posts (best fit for current moment)
-2. write_new — current discourse demands a post NOT in the calendar
-3. modify_and_write — modify an upcoming post's angle to fit current sentiment, then write it
+Give 4 distinct post recommendations. Mix of:
+- At least 2 from the upcoming calendar (pick the ones most relevant to current sentiment and audience)
+- Up to 2 entirely new topics if current discourse strongly demands it (not in calendar)
+- Vary between Deep and Sharp types
+- Each must resonate differently — vary by audience segment (e.g., one for CMOs, one for consultants, one for brand managers)
 
-Return this JSON:
+Return this exact JSON:
 {
-  "action": "write_scheduled|write_new|modify_and_write",
-  "calDate": "YYYY-MM-DD or null",
-  "topic": "exact topic to write",
-  "category": "Branding|Consulting|Congruence",
-  "type": "Deep|Sharp",
-  "sentimentReason": "which signal makes this the right post RIGHT NOW",
-  "urgency": "high|medium|low",
-  "beforeTopic": "original calendar topic if modifying, else null",
-  "beforeAngle": "original planned angle if modifying, else null",
-  "afterAngle": "revised angle given current sentiment, else null",
-  "modifications": [{"date":"YYYY-MM-DD","type":"note|priority|topic","value":"...","sentimentReason":"..."}]
+  "recommendations": [
+    {
+      "id": 1,
+      "topic": "exact post topic",
+      "category": "Branding|Consulting|Congruence",
+      "type": "Deep|Sharp",
+      "calDate": "YYYY-MM-DD if from calendar, null if new",
+      "isNew": false,
+      "audienceFocus": "which specific audience segment this will resonate with most",
+      "sentimentSignal": "which live signal makes this relevant now",
+      "summary": "2 sentences on what the post would argue and why it matters now",
+      "urgency": "high|medium|low",
+      "beforeTopic": "original calendar topic if modifying, else null",
+      "afterAngle": "revised angle if modifying, else null"
+    }
+  ]
 }`;
 
     try{
-      const raw=await callClaude(sys,usr,1000);
+      const raw=await callClaude(sys,usr,1500);
       const clean=raw.replace(/^```json\s*/i,"").replace(/\s*```$/i,"").trim();
       const parsed=JSON.parse(clean.slice(clean.indexOf("{"),clean.lastIndexOf("}")+1));
-      setRec(parsed);
-      setDraft(d=>({...d,topic:parsed.topic||"",category:parsed.category||"Congruence",type:parsed.type||"Deep",calDate:parsed.calDate||"",hashtags:""}));
-      if(parsed.beforeTopic&&parsed.afterAngle){
-        setComparison({before:{topic:parsed.beforeTopic,angle:parsed.beforeAngle||"Original planned angle"},after:{topic:parsed.topic,angle:parsed.afterAngle,reason:parsed.sentimentReason}});
-      }
-      if(parsed.modifications?.length&&mods){
-        // Store pending mods for user to apply
-        setRec(r=>({...r,pendingMods:parsed.modifications}));
-      }
-      setStep("editing");
-    }catch(e){setRec({error:String(e)});}
+      setRecs(parsed.recommendations||[]);
+      setStep("recs");
+    }catch(e){setRecs([{id:0,topic:"Error: "+String(e).slice(0,100),error:true}]);}
     setRecLoading(false);
+  };
+
+  const selectRec=r=>{
+    setSelectedRec(r);
+    setDraft(d=>({...d,topic:r.topic||"",category:r.category||"Congruence",type:r.type||"Deep",calDate:r.calDate||"",hashtags:""}));
+    if(r.beforeTopic&&r.afterAngle) setComparison({before:{topic:r.beforeTopic,angle:"Original planned angle"},after:{topic:r.topic,angle:r.afterAngle,reason:r.sentimentSignal}});
+    setStep("editing");
+    setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),100);
   };
 
   const generateDraft=async()=>{
@@ -1450,10 +1506,9 @@ Return this JSON:
   };
 
   const applyCompareMods=async()=>{
-    if(!rec?.pendingMods?.length) return;
-    const next=[...mods.filter(m=>!rec.pendingMods.find(p=>p.date===m.date)),...rec.pendingMods.map(m=>({date:m.date,note:m.type==="note"?m.value:undefined,priority:m.type==="priority"?m.value:undefined,newTopic:m.type==="topic"?m.value:undefined,sentimentReason:m.sentimentReason,appliedAt:new Date().toISOString()}))];
+    if(!selectedRec?.pendingMods?.length) return;
+    const next=[...mods.filter(m=>!selectedRec.pendingMods.find(p=>p.date===m.date)),...selectedRec.pendingMods.map(m=>({date:m.date,note:m.type==="note"?m.value:undefined,priority:m.type==="priority"?m.value:undefined,newTopic:m.type==="topic"?m.value:undefined,sentimentReason:m.sentimentReason,appliedAt:new Date().toISOString()}))];
     await onSaveMods(next);
-    setRec(r=>({...r,pendingMods:[]}));
     setSaveMsg("✓ Calendar updated");setTimeout(()=>setSaveMsg(""),2500);
   };
 
@@ -1466,36 +1521,40 @@ Return this JSON:
       {/* LEFT: Editor */}
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
-        {/* Recommendation bar */}
+        {/* Recommendation panel */}
         <Card style={{padding:"20px 22px"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:recs.length?16:0}}>
             <div>
               <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:15,color:T.text,marginBottom:4}}>
-                {rec&&!rec.error?"AI Recommendation Ready":"What should I write next?"}
+                {recs.length?"Pick a post to write":"What should I write next?"}
               </div>
               <div style={{fontSize:12,color:T.muted}}>
-                {hasSentiment?<span>🔍 <strong style={{color:T.green}}>Sentiment-informed</strong> · {sentiment.generatedDate}</span>:<span style={{color:T.amber}}>⚠ Generate a sentiment report first for best results</span>}
+                {hasSentiment?<span>🔍 <strong style={{color:T.green}}>Sentiment-informed</strong> · {sentiment.generatedDate}</span>:<span style={{color:T.amber}}>⚠ Generate sentiment report first for best results</span>}
               </div>
             </div>
-            <Btn onClick={getRecommendation} disabled={recLoading} label={recLoading?"Analysing…":rec?"Refresh Recommendation":"Get AI Recommendation"} color={hasSentiment?T.green:T.blue}/>
+            <Btn onClick={getRecommendations} disabled={recLoading}
+              label={recLoading?"Analysing…":recs.length?"↻ Refresh All 4":"Get 4 Recommendations"}
+              color={hasSentiment?T.green:T.blue}/>
           </div>
 
-          {rec&&!rec.error&&<div style={{marginTop:14,padding:"14px 16px",background:T.s2,borderRadius:9}}>
-            <div style={{display:"flex",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13.5,fontWeight:700,color:T.text,lineHeight:1.4,marginBottom:6}}>{rec.topic}</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-                  <Tag cat={rec.category||"Congruence"}/>
-                  <Pill label={rec.type||"Deep"} color={rec.type==="Deep"?T.blue:T.gold} bg={rec.type==="Deep"?T.blueL:T.goldL}/>
-                  <Pill label={rec.urgency==="high"?"🔥 High urgency":rec.urgency==="medium"?"Medium":"Low"} color={rec.urgency==="high"?T.red:T.gold} bg={rec.urgency==="high"?T.redL:T.goldL}/>
-                  {rec.calDate&&<span style={{fontSize:11,color:T.muted}}>📅 {rec.calDate}</span>}
-                </div>
-                {rec.sentimentReason&&<div style={{fontSize:12,color:T.green,background:T.greenL,padding:"6px 10px",borderRadius:7,lineHeight:1.5}}>🔍 {rec.sentimentReason}</div>}
+          {/* 4 recommendation cards */}
+          {recs.length>0&&!recs[0]?.error&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {recs.map((r,i)=><div key={i} onClick={()=>selectRec(r)}
+              style={{background:selectedRec?.id===r.id?T.blueL:T.s2,border:`2px solid ${selectedRec?.id===r.id?T.blue:T.border}`,borderRadius:10,padding:"14px 16px",cursor:"pointer",transition:"all 0.15s"}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                <Tag cat={r.category||"Congruence"}/>
+                <Pill label={r.type||"Deep"} color={r.type==="Deep"?T.blue:T.gold} bg={r.type==="Deep"?T.blueL:T.goldL}/>
+                {r.isNew&&<Pill label="New topic" color={T.purple} bg={T.purpleL}/>}
+                <Pill label={r.urgency==="high"?"🔥 Urgent":r.urgency==="medium"?"Medium":"Low"} color={r.urgency==="high"?T.red:T.muted} bg={r.urgency==="high"?T.redL:T.s2}/>
               </div>
-              <Btn onClick={()=>setStep("editing")} label="Use this →" small/>
-            </div>
+              <div style={{fontSize:13,fontWeight:700,color:T.text,lineHeight:1.4,marginBottom:6}}>{r.topic}</div>
+              <div style={{fontSize:11.5,color:T.sec,lineHeight:1.5,marginBottom:6}}>{r.summary}</div>
+              <div style={{fontSize:11,color:T.green,fontWeight:600}}>👥 {r.audienceFocus}</div>
+              {r.sentimentSignal&&<div style={{fontSize:11,color:T.blue,marginTop:4}}>🔍 {r.sentimentSignal}</div>}
+              <div style={{marginTop:8,fontSize:11.5,color:T.blue,fontWeight:700}}>Click to write this →</div>
+            </div>)}
           </div>}
-          {rec?.error&&<div style={{marginTop:10,fontSize:12,color:T.red,background:T.redL,padding:"8px 12px",borderRadius:7}}>{rec.error}</div>}
+          {recs[0]?.error&&<div style={{fontSize:12,color:T.red,background:T.redL,padding:"8px 12px",borderRadius:7,marginTop:10}}>{recs[0].topic}</div>}
         </Card>
 
         {/* Post Editor */}
@@ -1578,20 +1637,31 @@ Return this JSON:
         {/* Smart schedule */}
         <Card style={{padding:"18px 20px"}}>
           <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13.5,color:T.text,marginBottom:10}}>📅 Smart Schedule</div>
-          <div style={{fontSize:12,color:T.sec,marginBottom:10,lineHeight:1.6}}>
-            Best day: <strong style={{color:T.blue}}>{schedule.bestDay}</strong> · Best time: <strong style={{color:T.blue}}>{schedule.bestTime} IST</strong>
+
+          {/* Next window — prominent */}
+          <div style={{background:T.blueL,borderRadius:8,padding:"12px 14px",marginBottom:12,borderLeft:`3px solid ${T.blue}`}}>
+            <div style={{fontSize:10.5,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:4}}>Next posting window</div>
+            <div style={{fontSize:14,fontWeight:800,color:T.text}}>{schedule.nextWindow?.label||"—"}</div>
+            <div style={{fontSize:11.5,color:T.muted,marginTop:3}}>IST · LinkedIn peak window</div>
           </div>
+
+          <div style={{fontSize:12,color:T.sec,marginBottom:10,lineHeight:1.6}}>
+            Best day: <strong style={{color:T.blue}}>{schedule.bestDay}</strong> at <strong style={{color:T.blue}}>{schedule.bestTime} IST</strong>
+            {schedule.dataPoints>0&&<span style={{color:T.muted}}> · Based on {schedule.dataPoints} days of data</span>}
+            {schedule.dataPoints===0&&<span style={{color:T.muted}}> · LinkedIn research default</span>}
+          </div>
+
           {Object.keys(schedule.engByDay).length>0&&<div style={{marginBottom:10}}>
-            <div style={{fontSize:10.5,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>Engagement by day</div>
-            {Object.entries(schedule.engByDay).sort((a,b)=>b[1].eng-a[1].eng).slice(0,5).map(([day,d])=><div key={day} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:12,color:T.sec,fontWeight:600}}>{day}</span>
-              <span style={{fontSize:12,color:T.blue,fontWeight:700}}>{d.eng} eng · {fn(d.imp)} impr</span>
+            <div style={{fontSize:10.5,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>Your engagement by day</div>
+            {Object.entries(schedule.engByDay).sort((a,b)=>b[1].eng-a[1].eng).slice(0,5).map(([day,d])=><div key={day} style={{display:"flex",justifyContent:"space-between",marginBottom:4,alignItems:"center"}}>
+              <span style={{fontSize:12,color:T.sec,fontWeight:600,width:36}}>{day}</span>
+              <div style={{flex:1,background:T.s3,borderRadius:4,height:5,margin:"0 8px"}}>
+                <div style={{width:`${Math.min((d.eng/Math.max(...Object.values(schedule.engByDay).map(x=>x.eng)))*100,100)}%`,background:T.blue,height:"100%",borderRadius:4}}/>
+              </div>
+              <span style={{fontSize:11,color:T.blue,fontWeight:700,width:60,textAlign:"right"}}>{d.eng} eng</span>
             </div>)}
           </div>}
-          {nextUnpublished&&Object.keys(schedule.suggestions).length>0&&schedule.suggestions[nextUnpublished.date]?.diff&&<div style={{background:T.amberL,borderRadius:7,padding:"8px 10px",fontSize:11.5,color:T.amber,lineHeight:1.5}}>
-            ⚡ Next post: {schedule.suggestions[nextUnpublished.date]?.diff}
-          </div>}
-          {!Object.keys(schedule.engByDay).length&&<div style={{fontSize:12,color:T.muted}}>Upload weekly reports to see engagement-by-day analysis.</div>}
+          {!Object.keys(schedule.engByDay).length&&<div style={{fontSize:12,color:T.muted}}>Upload weekly reports to see your engagement-by-day analysis.</div>}
         </Card>
 
         {/* Saved Drafts */}
@@ -1675,7 +1745,7 @@ export default function App(){
           <span style={{color:"#fff",fontSize:16,fontWeight:800,fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif"}}>in</span>
         </div>
         <div>
-          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:15,color:T.text,letterSpacing:"-0.01em"}}>Sidharth Marri | AI-powered LinkedIn Dashboard</div>
+          <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:15,color:T.text,letterSpacing:"-0.01em"}}>Zola | LinkedIn Planner</div>
           <div style={{fontSize:10,color:T.muted}}>Sidharth Marri · {posts.length} posts · {weekly.length} weeks · {mods.length} mods · {sentiment?.generatedDate?`Sentiment ${sentiment.generatedDate}`:"No sentiment report yet"}</div>
         </div>
       </div>
