@@ -24,7 +24,7 @@ const BENCH = {
   followers:{label:"Followers/Post",avg:2,good:6,excellent:12,unit:""},
 };
 const TODAY = new Date().toISOString().slice(0,10); // dynamic — always current date
-const KEY = {posts:"li_p3",weekly:"li_w3",followers:"li_f3",mods:"li_m3",sentiment:"li_s3",drafts:"li_d3"};
+const KEY = {posts:"li_p3",weekly:"li_w3",followers:"li_f3",mods:"li_m3",sentiment:"li_s3",drafts:"li_d3",pstatus:"li_ps3",airec:"li_air3"};
 
 const DOMAINS = [
   {key:"brandManagement",  label:"Brand Management",   icon:"🏷", color:T.blue,   bg:T.blueL},
@@ -317,7 +317,7 @@ function BenchBar({label,val,bench,unit=""}){
 }
 
 function StatusBadge({status}){
-  const c={published:{bg:T.greenL,color:T.green,icon:"✓",label:"Published"},today:{bg:T.blueL,color:T.blue,icon:"→",label:"Today"},overdue:{bg:T.redL,color:T.red,icon:"!",label:"Overdue"},upcoming:{bg:T.s2,color:T.muted,icon:"·",label:"Upcoming"}}[status]||{bg:T.s2,color:T.muted,icon:"·",label:"—"};
+  const c={published:{bg:T.greenL,color:T.green,icon:"✓",label:"Published"},today:{bg:T.blueL,color:T.blue,icon:"→",label:"Today"},overdue:{bg:T.redL,color:T.red,icon:"!",label:"Overdue"},upcoming:{bg:T.s2,color:T.muted,icon:"·",label:"Upcoming"},forfeited:{bg:T.s3,color:T.muted,icon:"✕",label:"Forfeited"},"scheduled-manual":{bg:T.goldL,color:T.gold,icon:"📌",label:"Scheduled"}}[status]||{bg:T.s2,color:T.muted,icon:"·",label:"—"};
   return <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:c.bg,color:c.color,display:"inline-flex",alignItems:"center",gap:3}}><span>{c.icon}</span>{c.label}</span>;
 }
 
@@ -739,31 +739,51 @@ function sentimentDomainFor(entry) {
   return "brandManagement";
 }
 
-function ContentPlan({posts,mods,onSaveMods,sentiment}){
-  const [aiRec,setAiRec]=useState("");
+function ContentPlan({posts,mods,onSaveMods,sentiment,postStatus,onSavePostStatus,aiRec,onSaveAiRec,onSwitchToPlanner}){
   const [aiLoading,setAiLoading]=useState(false);
   const [pendingMods,setPendingMods]=useState([]);
   const [hashOpen,setHashOpen]=useState(null);
+  const [editingDate,setEditingDate]=useState(null); // date being edited for status/timing
+  const [editDraft,setEditDraft]=useState({status:"",date:"",time:""});
   const hasSentiment=!!(sentiment?.domains);
 
-  // Build published set: match by date (primary) or by topic (fuzzy secondary)
+  // Manual status override map: {date: {status:"posted"|"scheduled"|"forfeited", newDate, newTime}}
+  const getOverride=date=>postStatus.find(s=>s.date===date);
+
+  // Build published set: match by date (primary) or by topic (fuzzy secondary) OR manual override
   const pubDates=new Set(posts.map(p=>String(p.date).trim()));
   const pubTopics=new Set(posts.map(p=>String(p.topic||"").toLowerCase().trim()));
 
   const getStatus=c=>{
-    const byDate=pubDates.has(c.date);
+    const ov=getOverride(c.date);
+    if(ov?.status==="posted") return "published";
+    if(ov?.status==="forfeited") return "forfeited";
+    if(ov?.status==="scheduled") return "scheduled-manual";
+    const effDate=ov?.newDate||c.date;
+    const byDate=pubDates.has(c.date)||pubDates.has(effDate);
     const byTopic=pubTopics.has(c.topic.toLowerCase().trim());
-    if((byDate||byTopic)&&c.date<=TODAY) return "published";
-    if(c.date===TODAY) return "today";
-    if(c.date<TODAY&&!byDate&&!byTopic) return "overdue";
+    if((byDate||byTopic)&&effDate<=TODAY) return "published";
+    if(effDate===TODAY) return "today";
+    if(effDate<TODAY&&!byDate&&!byTopic) return "overdue";
     return "upcoming";
   };
 
-  const nextPost=CAL.find(c=>{const s=getStatus(c);return s==="today"||s==="overdue";})||CAL.find(c=>getStatus(c)==="upcoming");
+  const getEffDate=c=>{
+    const ov=getOverride(c.date);
+    return ov?.newDate||c.date;
+  };
+  const getEffTime=c=>{
+    const ov=getOverride(c.date);
+    return ov?.newTime||LI_BEST_TIMES[c.day]||"10:30 AM";
+  };
+
+  const nextPost=CAL.filter(c=>getStatus(c)!=="published"&&getStatus(c)!=="forfeited").sort((a,b)=>getEffDate(a)>getEffDate(b)?1:-1).find(c=>{const s=getStatus(c);return s==="today"||s==="overdue"||s==="scheduled-manual";})
+    ||CAL.filter(c=>getStatus(c)!=="published"&&getStatus(c)!=="forfeited").sort((a,b)=>getEffDate(a)>getEffDate(b)?1:-1)[0];
   const pubCount=CAL.filter(c=>getStatus(c)==="published").length;
   const overdueCount=CAL.filter(c=>getStatus(c)==="overdue").length;
+  const forfeitedCount=CAL.filter(c=>getStatus(c)==="forfeited").length;
 
-  // Apply mod overrides to calendar
+  // Apply mod overrides to calendar (topic/hashtag/note changes from AI)
   const getModForDate=date=>mods.find(m=>m.date===date);
   const calWithMods=CAL.map(c=>{
     const mod=getModForDate(c.date);
@@ -771,12 +791,27 @@ function ContentPlan({posts,mods,onSaveMods,sentiment}){
     return {...c,topic:mod.newTopic||c.topic,hashtags:mod.newHashtags||c.hashtags,_modNote:mod.note,_modPriority:mod.priority};
   });
 
-  const generateRec=async()=>{
-    setAiLoading(true);setAiRec("");setPendingMods([]);
-    const pubSummary=posts.map(p=>`${p.date} | ${p.topic} | Impr:${p.totals?.impressions||0} | Eng:${engRateFrom(p.totals,[]).toFixed(1)}% | Comm:${p.totals?.comments||0} | Saves:${p.totals?.saves||0}`).join("\n")||"No posts uploaded yet.";
-    const upcoming=calWithMods.filter(c=>getStatus(c)!=="published").slice(0,8).map(c=>`${c.date}(${c.day}) | ${c.type} | ${c.cat} | ${c.pillar} | ${c.topic}`).join("\n");
+  // ── Status/date editing ──
+  const openEdit=c=>{
+    const ov=getOverride(c.date);
+    setEditingDate(c.date);
+    setEditDraft({status:ov?.status||"scheduled",date:ov?.newDate||c.date,time:ov?.newTime||LI_BEST_TIMES[c.day]||"10:30 AM"});
+  };
+  const saveEdit=async()=>{
+    const next=[...postStatus.filter(s=>s.date!==editingDate),{date:editingDate,status:editDraft.status,newDate:editDraft.date,newTime:editDraft.time,updatedAt:new Date().toISOString()}];
+    await onSavePostStatus(next);
+    setEditingDate(null);
+  };
+  const clearOverride=async date=>{
+    const next=postStatus.filter(s=>s.date!==date);
+    await onSavePostStatus(next);
+  };
 
-    // Build sentiment block
+  const generateRec=async()=>{
+    setAiLoading(true);onSaveAiRec({text:"",pendingMods:[],generatedAt:new Date().toISOString()});setPendingMods([]);
+    const pubSummary=posts.map(p=>`${p.date} | ${p.topic} | Impr:${p.totals?.impressions||0} | Eng:${engRateFrom(p.totals,[]).toFixed(1)}% | Comm:${p.totals?.comments||0} | Saves:${p.totals?.saves||0}`).join("\n")||"No posts uploaded yet.";
+    const upcoming=calWithMods.filter(c=>getStatus(c)!=="published"&&getStatus(c)!=="forfeited").slice(0,8).map(c=>`${c.date}(${c.day}) | ${c.type} | ${c.cat} | ${c.pillar} | ${c.topic}`).join("\n");
+
     const sentBlock = hasSentiment ? `
 LIVE SENTIMENT SIGNALS (generated ${sentiment.generatedDate}):
 Brand Management: ${sentiment.domains.brandManagement?.sentiment?.toUpperCase()} — ${sentiment.domains.brandManagement?.dominantTheme||""}
@@ -792,7 +827,7 @@ Cross-domain pattern: ${sentiment.crossDomainInsight||""}
 This week's content opportunity: ${sentiment.contentOpportunity||""}
 Audience signal: ${sentiment.audienceSignal||""}` : "No sentiment data available — recommendations based on performance data only.";
 
-    const prompt=`You are a LinkedIn content strategist for Sidharth Marri, brand strategist and marketing consultant at IIM Kozhikode. He posts Mon (Deep, 300-450w) + Thu (Sharp, 80-150w). ~2,450 connections.
+    const prompt=`You are a LinkedIn content strategist for a brand strategist building a LinkedIn presence. He posts Mon (Deep, 300-450w) + Thu (Sharp, 80-150w).
 
 PUBLISHED POSTS:
 ${pubSummary}
@@ -805,33 +840,30 @@ ${overdueCount>0?`OVERDUE: ${overdueCount} posts missed their schedule.`:""}
 
 ${sentBlock}
 
-Your job is to connect the sentiment signals to the content calendar and produce a sentiment-informed content recommendation.
+Your job is to connect the sentiment signals to the content calendar and produce a sentiment-informed content recommendation, RANKED BY RELEVANCE.
 
 **Next post to publish**
 Exact topic, date, type. Cite which specific sentiment signal makes this the right post to publish RIGHT NOW.
 
 **Why post this now (not next week)**
-Connect the timing to the live discourse. What is being discussed in the relevant domain that this post speaks to? Be specific about the sentiment signal.
+Connect the timing to the live discourse. Be specific about the sentiment signal.
 
 **Angle adjustment**
-What specific change to the hook, framing, or angle of this post makes it more relevant to current discourse? Give a concrete before/after rewrite of the opening line if needed.
+What specific change to the hook, framing, or angle makes it more relevant to current discourse? Give a concrete before/after rewrite of the opening line if needed.
 
-**Best time to post**
-Day and time. One sentence.
-
-**Sentiment-to-calendar mapping**
-For each of the next 4 upcoming posts, rate its relevance to current sentiment on a scale of High/Medium/Low and say why in one line. Format as: [date] [topic snippet] → [High/Medium/Low]: [reason]
+**Sentiment-to-calendar mapping, ranked by relevance**
+Rank ALL upcoming posts from most to least relevant to current sentiment. Format each line as: [Rank #] [date] [topic snippet] → [High/Medium/Low]: [one-line reason]
 
 **Highest priority post in the next 8**
-Which one is most time-sensitive given the live discourse? Why in 2 sentences.
+Which one is most time-sensitive given live discourse? Why in 2 sentences.
 
 **CALENDAR MODIFICATIONS (JSON)**
-Output ONLY valid JSON after this header. Each mod must include a sentimentReason field explaining which signal drives it:
+Output ONLY valid JSON after this header. Each mod must include a sentimentReason field:
 \`\`\`json
 [
   {"date":"YYYY-MM-DD","type":"note","value":"Specific angle or framing note","sentimentReason":"Which sentiment signal drives this and why"},
   {"date":"YYYY-MM-DD","type":"priority","value":"high","sentimentReason":"Why current discourse makes this urgent"},
-  {"date":"YYYY-MM-DD","type":"topic","value":"Revised topic if current discourse warrants a change","sentimentReason":"What is happening in the domain that motivates this change"}
+  {"date":"YYYY-MM-DD","type":"topic","value":"Revised topic if current discourse warrants a change","sentimentReason":"What is happening that motivates this change"}
 ]
 \`\`\`
 
@@ -841,20 +873,31 @@ Every point must be tied to either a specific performance number or a specific s
       const res=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1800,messages:[{role:"user",content:prompt}]})});
       const data=await res.json();
       const text=data.content?.find(c=>c.type==="text")?.text||"Could not generate.";
-      setAiRec(text);
       const jsonMatch=text.match(/```json\s*([\s\S]*?)```/);
+      let mods=[];
       if(jsonMatch){
-        try{const parsed=JSON.parse(jsonMatch[1].trim());setPendingMods(parsed.map(m=>({...m,pending:true})));}catch{}
+        try{mods=JSON.parse(jsonMatch[1].trim()).map(m=>({...m,pending:true}));}catch{}
       }
-    }catch{setAiRec("Failed to connect. Try again.");}
+      setPendingMods(mods);
+      await onSaveAiRec({text,pendingMods:mods,generatedAt:new Date().toISOString()});
+    }catch{
+      await onSaveAiRec({text:"Failed to connect. Try again.",pendingMods:[],generatedAt:new Date().toISOString()});
+    }
     setAiLoading(false);
   };
 
   const applyMods=async()=>{
-    const newMods=[...mods.filter(m=>!pendingMods.find(p=>p.date===m.date)),...pendingMods.map(m=>({date:m.date,note:m.type==="note"?m.value:undefined,priority:m.type==="priority"?m.value:undefined,newTopic:m.type==="topic"?m.value:undefined,sentimentReason:m.sentimentReason||undefined,appliedAt:new Date().toISOString()}))];
+    const pm=aiRec?.pendingMods||pendingMods;
+    const newMods=[...mods.filter(m=>!pm.find(p=>p.date===m.date)),...pm.map(m=>({date:m.date,note:m.type==="note"?m.value:undefined,priority:m.type==="priority"?m.value:undefined,newTopic:m.type==="topic"?m.value:undefined,sentimentReason:m.sentimentReason||undefined,appliedAt:new Date().toISOString()}))];
     await onSaveMods(newMods);
+    await onSaveAiRec({...aiRec,pendingMods:[]});
     setPendingMods([]);
-    setAiRec(prev=>prev.replace(/```json[\s\S]*?```/,""));
+  };
+
+  // Add a single recommended post directly to the calendar as a mod (topic override) on its suggested slot
+  const addRecToCalendar=async(date,newTopic,reason)=>{
+    const next=[...mods.filter(m=>m.date!==date),{date,newTopic,note:"Added from AI recommendation",sentimentReason:reason,appliedAt:new Date().toISOString()}];
+    await onSaveMods(next);
   };
 
   const clearMod=async date=>{
@@ -867,56 +910,72 @@ Every point must be tied to either a specific performance number or a specific s
     return withoutJson.split("\n").map((line,i)=>{
       if(line.startsWith("**")&&line.endsWith("**")) return <div key={i} style={{fontWeight:700,color:T.text,fontSize:13.5,marginTop:18,marginBottom:5}}>{line.replace(/\*\*/g,"")}</div>;
       if(!line.trim()) return <div key={i} style={{height:4}}/>;
-      return <div key={i} style={{fontSize:13.5,color:T.sec,lineHeight:1.7,marginBottom:3}}>{line.replace(/\*\*/g,"")}</div>;
+      const isRanked=/^\[Rank \d+\]/.test(line.trim());
+      return <div key={i} style={{fontSize:13.5,color:isRanked?T.text:T.sec,lineHeight:1.7,marginBottom:3,fontWeight:isRanked?600:400,paddingLeft:isRanked?8:0,borderLeft:isRanked?`2px solid ${T.blue}`:"none"}}>{line.replace(/\*\*/g,"")}</div>;
     });
   }
+
+  const STATUS_OPTIONS=[
+    {v:"scheduled",label:"Scheduled",color:T.blue,icon:"📅"},
+    {v:"posted",label:"Posted",color:T.green,icon:"✓"},
+    {v:"forfeited",label:"Forfeited",color:T.red,icon:"✕"},
+  ];
 
   return <div>
     {/* Summary KPIs */}
     <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
-      {[["Total Posts","34","in 17 weeks",T.blue],["Published",pubCount,`of ${CAL.filter(c=>c.date<=TODAY).length} due`,T.green],["Overdue",overdueCount,"missed schedule",overdueCount>0?T.red:T.muted],["Upcoming",CAL.filter(c=>c.date>TODAY).length,"remaining",T.gold],["Mods Applied",mods.length,"calendar updates",T.purple]].map(([l,v,s,c])=><KPI key={l} label={l} value={String(v)} sub={s} color={c}/>)}
+      {[["Total Posts","34","in 17 weeks",T.blue],["Published",pubCount,`of ${CAL.filter(c=>c.date<=TODAY).length} due`,T.green],["Overdue",overdueCount,"missed schedule",overdueCount>0?T.red:T.muted],["Forfeited",forfeitedCount,"skipped",forfeitedCount>0?T.amber:T.muted],["Upcoming",CAL.filter(c=>c.date>TODAY).length,"remaining",T.gold],["Mods Applied",mods.length,"calendar updates",T.purple]].map(([l,v,s,c])=><KPI key={l} label={l} value={String(v)} sub={s} color={c}/>)}
     </div>
 
     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}}>
       {/* Calendar table */}
       <Card style={{padding:"20px 22px"}}>
-        <SHdr t="17-Week Content Calendar" s={hasSentiment?"Live status · sentiment relevance · hashtags":"Live status · hashtags · generate sentiment report for relevance signals"}/>
-        <div style={{overflowX:"auto",maxHeight:500,overflowY:"auto"}}>
+        <SHdr t="17-Week Content Calendar" s={hasSentiment?"Live status · sentiment relevance · click ✎ to edit status/date":"Live status · click ✎ to edit status/date · generate sentiment for relevance signals"}/>
+        <div style={{overflowX:"auto",maxHeight:520,overflowY:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead style={{position:"sticky",top:0,background:T.surface,zIndex:1}}>
               <tr style={{borderBottom:`2px solid ${T.border}`}}>
-                {["Wk","Date","Type","Topic","Category","Status",hasSentiment?"Pulse":"","#"].filter(Boolean).map(h=><th key={h} style={{textAlign:"left",padding:"8px 9px",color:T.muted,fontWeight:700,fontSize:10.5,textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>{h}</th>)}
+                {["Wk","Date","Type","Topic","Category","Status",hasSentiment?"Pulse":"","✎","#"].filter(Boolean).map(h=><th key={h} style={{textAlign:"left",padding:"8px 9px",color:T.muted,fontWeight:700,fontSize:10.5,textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {calWithMods.map((c,i)=>{
                 const st=getStatus(c);
+                const ov=getOverride(c.date);
+                const effDate=getEffDate(c);
+                const effTime=getEffTime(c);
                 const isNext=nextPost?.date===c.date;
                 const mod=getModForDate(c.date);
-                const rowBg=isNext?T.blueL:st==="overdue"?T.redL:st==="published"?T.greenL:i%2?"transparent":T.s2;
-                // Sentiment relevance for this post
+                const rowBg=isNext?T.blueL:st==="overdue"?T.redL:st==="published"?T.greenL:st==="forfeited"?T.s3:i%2?"transparent":T.s2;
                 const domKey=sentimentDomainFor(c);
                 const domSent=sentiment?.domains?.[domKey];
                 const sentHot=domSent&&["heated","critical","mixed"].includes(domSent.sentiment?.toLowerCase());
                 const sentPos=domSent&&domSent.sentiment?.toLowerCase()==="positive";
                 const sentPulse=domSent?{bg:sentHot?T.redL:sentPos?T.greenL:T.blueL,color:sentHot?T.red:sentPos?T.green:T.blue,label:sentHot?"🔥 Hot":sentPos?"↑ +ve":"● "+domSent.sentiment}:null;
-                return <tr key={i} style={{borderBottom:`1px solid ${T.border}`,background:rowBg}}>
+                return <tr key={i} style={{borderBottom:`1px solid ${T.border}`,background:rowBg,opacity:st==="forfeited"?0.55:1}}>
                   <td style={{padding:"9px 9px",color:T.muted,fontWeight:600}}>{c.w}</td>
-                  <td style={{padding:"9px 9px",color:T.muted,whiteSpace:"nowrap"}}>{c.date.slice(5).replace("-","/")} <span style={{fontSize:9.5}}>{c.day}</span></td>
+                  <td style={{padding:"9px 9px",color:T.muted,whiteSpace:"nowrap"}}>
+                    {effDate.slice(5).replace("-","/")} <span style={{fontSize:9.5}}>{c.day}</span>
+                    {ov?.newDate&&ov.newDate!==c.date&&<div style={{fontSize:9,color:T.amber}}>was {c.date.slice(5).replace("-","/")}</div>}
+                    {ov?.newTime&&<div style={{fontSize:9,color:T.muted}}>{effTime}</div>}
+                  </td>
                   <td style={{padding:"9px 9px"}}><span style={{fontSize:10,fontWeight:700,color:c.type==="Deep"?T.blue:T.gold,background:c.type==="Deep"?T.blueL:T.goldL,padding:"2px 7px",borderRadius:20}}>{c.type}</span></td>
-                  <td style={{padding:"9px 9px",maxWidth:220}}>
-                    <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:isNext?700:500,color:isNext?T.blue:T.text}}>{c.topic}</div>
+                  <td style={{padding:"9px 9px",maxWidth:200}}>
+                    <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:isNext?700:500,color:isNext?T.blue:T.text,textDecoration:st==="forfeited"?"line-through":"none"}}>{c.topic}</div>
                     {mod?.note&&<div style={{fontSize:10,color:T.purple,marginTop:2}}>💡 {mod.note}</div>}
-                    {mod?.sentimentReason&&<div style={{fontSize:10,color:T.green,marginTop:2}}>🔍 {mod.sentimentReason.slice(0,60)}{mod.sentimentReason.length>60?"…":""}</div>}
-                    {mod?.newTopic&&<div style={{fontSize:10,color:T.amber,marginTop:2}}>✏ {mod.newTopic.slice(0,50)}</div>}
+                    {mod?.sentimentReason&&<div style={{fontSize:10,color:T.green,marginTop:2}}>🔍 {mod.sentimentReason.slice(0,55)}{mod.sentimentReason.length>55?"…":""}</div>}
+                    {mod?.newTopic&&<div style={{fontSize:10,color:T.amber,marginTop:2}}>✏ {mod.newTopic.slice(0,45)}</div>}
                     {mod?.priority==="high"&&<div style={{fontSize:10,color:T.red,fontWeight:700,marginTop:2}}>⭐ High priority</div>}
                   </td>
                   <td style={{padding:"9px 9px"}}><Tag cat={c.cat}/></td>
                   <td style={{padding:"9px 9px"}}><StatusBadge status={st}/></td>
                   {hasSentiment&&<td style={{padding:"9px 9px"}}>
-                    {sentPulse&&st!=="published"&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:sentPulse.bg,color:sentPulse.color,whiteSpace:"nowrap"}}>{sentPulse.label}</span>}
-                    {st==="published"&&<span style={{fontSize:10,color:T.muted}}>—</span>}
+                    {sentPulse&&st!=="published"&&st!=="forfeited"&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:sentPulse.bg,color:sentPulse.color,whiteSpace:"nowrap"}}>{sentPulse.label}</span>}
+                    {(st==="published"||st==="forfeited")&&<span style={{fontSize:10,color:T.muted}}>—</span>}
                   </td>}
+                  <td style={{padding:"9px 9px"}}>
+                    <button onClick={()=>openEdit(c)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 8px",fontSize:10.5,cursor:"pointer",color:T.sec,fontFamily:"inherit"}}>✎</button>
+                  </td>
                   <td style={{padding:"9px 9px",position:"relative"}}>
                     <button onClick={()=>setHashOpen(hashOpen===c.date?null:c.date)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"3px 8px",fontSize:10.5,cursor:"pointer",color:T.blue,fontFamily:"inherit"}}>#</button>
                     {mod&&<button onClick={()=>clearMod(c.date)} style={{background:"none",border:"none",cursor:"pointer",fontSize:10.5,color:T.muted,marginLeft:3}}>✕</button>}
@@ -963,7 +1022,6 @@ Every point must be tied to either a specific performance number or a specific s
         <Card style={{padding:"16px 18px"}}>
           <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13,color:T.text,marginBottom:12}}>Next Up — 2 Options</div>
 
-          {/* Option 1: From calendar */}
           {nextPost&&<div style={{marginBottom:10,padding:"12px 14px",background:T.blueL,borderRadius:9,borderLeft:`3px solid ${T.blue}`}}>
             <div style={{fontSize:10,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>📅 From Your Calendar</div>
             <div style={{fontSize:12.5,fontWeight:700,color:T.text,lineHeight:1.35,marginBottom:5}}>{nextPost.topic}</div>
@@ -972,67 +1030,62 @@ Every point must be tied to either a specific performance number or a specific s
               <Pill label={nextPost.type} color={nextPost.type==="Deep"?T.blue:T.gold} bg={nextPost.type==="Deep"?T.blueL:T.goldL}/>
               <StatusBadge status={getStatus(nextPost)}/>
             </div>
-            <div style={{fontSize:11,color:T.muted}}>📅 {nextPost.date} · {nextPost.pillar}</div>
+            <div style={{fontSize:11,color:T.muted}}>📅 {getEffDate(nextPost)} · {getEffTime(nextPost)} · {nextPost.pillar}</div>
           </div>}
 
-          {/* Option 2: AI recommended from sentiment */}
           <div style={{padding:"12px 14px",background:T.greenL,borderRadius:9,borderLeft:`3px solid ${T.green}`}}>
             <div style={{fontSize:10,fontWeight:700,color:T.green,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:5}}>🔍 AI Recommended</div>
             {hasSentiment&&sentiment.contentOpportunity
               ?<>
                 <div style={{fontSize:12.5,fontWeight:700,color:T.text,lineHeight:1.35,marginBottom:5}}>{sentiment.contentOpportunity.slice(0,80)}{sentiment.contentOpportunity.length>80?"…":""}</div>
-                <div style={{fontSize:11.5,color:T.sec,lineHeight:1.5,marginBottom:5}}>{sentiment.audienceSignal?.slice(0,100)}{(sentiment.audienceSignal?.length||0)>100?"…":""}</div>
-                <div style={{fontSize:11,color:T.green,fontWeight:600}}>Based on {sentiment.generatedDate} sentiment report</div>
+                <div style={{fontSize:11.5,color:T.sec,lineHeight:1.5,marginBottom:7}}>{sentiment.audienceSignal?.slice(0,100)}{(sentiment.audienceSignal?.length||0)>100?"…":""}</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:11,color:T.green,fontWeight:600}}>Based on {sentiment.generatedDate}</span>
+                  {onSwitchToPlanner&&<button onClick={onSwitchToPlanner} style={{fontSize:11,color:T.green,background:"none",border:`1px solid ${T.green}`,borderRadius:5,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Write in AI Planner →</button>}
+                </div>
               </>
               :<div style={{fontSize:12,color:T.muted}}>Generate a sentiment report to see AI-recommended alternatives.</div>}
           </div>
         </Card>
 
-        {/* AI planner card */}
+        {/* AI planner card — persists via aiRec prop */}
         <Card style={{padding:"16px 18px",flex:1}}>
           <div style={{marginBottom:12}}>
             <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:13.5,color:T.text}}>AI Content Planner</div>
             <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>
               {hasSentiment
                 ? <span>🔍 <strong style={{color:T.green}}>Sentiment-informed</strong> · {sentiment.generatedDate}</span>
-                : <span style={{color:T.amber}}>⚠ No sentiment data — <button onClick={()=>{}} style={{background:"none",border:"none",color:T.blue,cursor:"pointer",fontSize:11.5,fontFamily:"inherit",padding:0,textDecoration:"underline"}}>generate report first</button> for best results</span>}
+                : <span style={{color:T.amber}}>⚠ No sentiment data — generate report first for best results</span>}
+              {aiRec?.generatedAt&&<span style={{display:"block",marginTop:3,color:T.muted}}>Last generated: {new Date(aiRec.generatedAt).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>}
             </div>
           </div>
 
-          <button onClick={generateRec} disabled={aiLoading} style={{width:"100%",background:aiLoading?T.s3:hasSentiment?T.green:T.blue,color:aiLoading?T.muted:"#fff",border:"none",borderRadius:8,padding:"11px",fontSize:13,fontWeight:700,cursor:aiLoading?"default":"pointer",fontFamily:"inherit",marginBottom:aiRec?14:0,transition:"background 0.15s"}}>
-            {aiLoading?"Analysing…":hasSentiment?"What to post? (Sentiment-Informed)":"What should I post next?"}
+          <button onClick={generateRec} disabled={aiLoading} style={{width:"100%",background:aiLoading?T.s3:hasSentiment?T.green:T.blue,color:aiLoading?T.muted:"#fff",border:"none",borderRadius:8,padding:"11px",fontSize:13,fontWeight:700,cursor:aiLoading?"default":"pointer",fontFamily:"inherit",marginBottom:(aiRec?.text)?14:0,transition:"background 0.15s"}}>
+            {aiLoading?"Analysing…":aiRec?.text?"↻ Refresh Recommendation":"What to post? (Sentiment-Informed)"}
           </button>
 
-          {aiRec&&!aiLoading&&<div style={{maxHeight:420,overflowY:"auto"}}>
-            <div style={{background:T.s2,borderRadius:9,padding:"14px 16px",marginBottom:pendingMods.length?12:0,fontSize:13}}>
-              {aiRec.replace(/```json[\s\S]*?```/,"").trim().split("\n").map((line,i)=>{
-                if(line.startsWith("**")&&line.endsWith("**")) return <div key={i} style={{fontWeight:700,color:T.text,fontSize:13.5,marginTop:16,marginBottom:5}}>{line.replace(/\*\*/g,"")}</div>;
-                if(!line.trim()) return <div key={i} style={{height:4}}/>;
-                // Highlight sentiment references
-                const hasSentRef=line.includes("Heated")||line.includes("heated")||line.includes("Hot")||line.includes("sentiment")||line.includes("🔍")||line.includes("🔥");
-                return <div key={i} style={{fontSize:13,color:hasSentRef?T.green:T.sec,lineHeight:1.7,marginBottom:3,fontWeight:hasSentRef?600:400}}>{line.replace(/\*\*/g,"")}</div>;
-              })}
-            </div>
+          {aiRec?.text&&!aiLoading&&<div style={{maxHeight:420,overflowY:"auto"}}>
+            <div style={{background:T.s2,borderRadius:9,padding:"14px 16px",marginBottom:(aiRec.pendingMods?.length)?12:0}}>{fmtRec(aiRec.text)}</div>
 
-            {/* Pending mods */}
-            {pendingMods.length>0&&<div style={{background:T.purpleL,border:`1px solid ${T.purple}`,borderRadius:9,padding:"14px 16px"}}>
+            {aiRec.pendingMods?.length>0&&<div style={{background:T.purpleL,border:`1px solid ${T.purple}`,borderRadius:9,padding:"14px 16px"}}>
               <div style={{fontWeight:700,color:T.purple,fontSize:12.5,marginBottom:10}}>
-                📋 {pendingMods.length} sentiment-informed calendar update{pendingMods.length>1?"s":""} ready:
+                📋 {aiRec.pendingMods.length} sentiment-informed calendar update{aiRec.pendingMods.length>1?"s":""} ready:
               </div>
-              {pendingMods.map((m,i)=><div key={i} style={{background:T.surface,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                  <span style={{fontWeight:700,color:T.text,fontSize:12}}>{m.date}</span>
-                  <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",background:T.s2,color:T.muted,padding:"1px 6px",borderRadius:20}}>{m.type}</span>
+              {aiRec.pendingMods.map((m,i)=><div key={i} style={{background:T.surface,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontWeight:700,color:T.text,fontSize:12}}>{m.date}</span>
+                    <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",background:T.s2,color:T.muted,padding:"1px 6px",borderRadius:20}}>{m.type}</span>
+                  </div>
+                  <button onClick={()=>addRecToCalendar(m.date,m.type==="topic"?m.value:CAL.find(c=>c.date===m.date)?.topic,m.sentimentReason)} style={{fontSize:10.5,color:T.blue,background:"none",border:`1px solid ${T.blue}`,borderRadius:5,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>+ Add to calendar</button>
                 </div>
                 <div style={{fontSize:12.5,color:T.sec,marginBottom:m.sentimentReason?5:0,lineHeight:1.5}}>{m.value}</div>
-                {m.sentimentReason&&<div style={{fontSize:11,color:T.green,lineHeight:1.4,background:T.greenL,padding:"5px 8px",borderRadius:6}}>
-                  🔍 {m.sentimentReason}
-                </div>}
+                {m.sentimentReason&&<div style={{fontSize:11,color:T.green,lineHeight:1.4,background:T.greenL,padding:"5px 8px",borderRadius:6}}>🔍 {m.sentimentReason}</div>}
               </div>)}
               <button onClick={applyMods} style={{width:"100%",background:T.purple,color:"#fff",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>
                 Apply All to Calendar
               </button>
-              <button onClick={()=>setPendingMods([])} style={{width:"100%",background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"8px",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",marginTop:6,color:T.muted}}>
+              <button onClick={()=>onSaveAiRec({...aiRec,pendingMods:[]})} style={{width:"100%",background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"8px",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",marginTop:6,color:T.muted}}>
                 Dismiss
               </button>
             </div>}
@@ -1040,8 +1093,44 @@ Every point must be tied to either a specific performance number or a specific s
         </Card>
       </div>
     </div>
+
+    {/* Status/Date Edit Modal */}
+    {editingDate&&<div onClick={()=>setEditingDate(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:14,padding:"26px 28px",width:380,boxShadow:T.shM}}>
+        <div style={{fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif",fontWeight:800,fontSize:16,color:T.text,marginBottom:4}}>Update Post</div>
+        <div style={{fontSize:12,color:T.muted,marginBottom:18}}>{CAL.find(c=>c.date===editingDate)?.topic}</div>
+
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11.5,fontWeight:700,color:T.sec,marginBottom:7}}>Status</div>
+          <div style={{display:"flex",gap:6}}>
+            {STATUS_OPTIONS.map(s=><button key={s.v} onClick={()=>setEditDraft(d=>({...d,status:s.v}))} style={{flex:1,padding:"9px 6px",borderRadius:8,border:`2px solid ${editDraft.status===s.v?s.color:T.border}`,background:editDraft.status===s.v?s.color+"15":T.surface,color:editDraft.status===s.v?s.color:T.sec,fontSize:11.5,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{s.icon} {s.label}</button>)}
+          </div>
+        </div>
+
+        {editDraft.status!=="forfeited"&&<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
+            <div>
+              <div style={{fontSize:11.5,fontWeight:700,color:T.sec,marginBottom:6}}>Date</div>
+              <input type="date" value={editDraft.date} onChange={e=>setEditDraft(d=>({...d,date:e.target.value}))} style={{width:"100%",border:`1px solid ${T.border}`,borderRadius:7,padding:"8px 10px",fontSize:12.5,color:T.text,fontFamily:"inherit",outline:"none"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11.5,fontWeight:700,color:T.sec,marginBottom:6}}>Time</div>
+              <input type="text" value={editDraft.time} onChange={e=>setEditDraft(d=>({...d,time:e.target.value}))} placeholder="10:30 AM" style={{width:"100%",border:`1px solid ${T.border}`,borderRadius:7,padding:"8px 10px",fontSize:12.5,color:T.text,fontFamily:"inherit",outline:"none"}}/>
+            </div>
+          </div>
+          <div style={{fontSize:11,color:T.muted,marginBottom:18,lineHeight:1.5}}>Changing this date will shift the suggested timing for posts scheduled after it.</div>
+        </>}
+
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={saveEdit} style={{flex:1,background:T.blue,color:"#fff",border:"none",borderRadius:8,padding:"10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Save</button>
+          {getOverride(editingDate)&&<button onClick={()=>{clearOverride(editingDate);setEditingDate(null);}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:T.red}}>Reset</button>}
+          <button onClick={()=>setEditingDate(null)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,padding:"10px 14px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:T.muted}}>Cancel</button>
+        </div>
+      </div>
+    </div>}
   </div>;
 }
+
 
 /* ── SENTIMENT REPORT ────────────────────────────────────────────────────── */
 async function callClaude(systemPrompt, userPrompt, maxTokens=2500) {
@@ -1625,7 +1714,7 @@ Return this exact JSON:
             </div>
           </div>
           <div style={{display:"flex",gap:10}}>
-            {rec?.pendingMods?.length>0&&<Btn onClick={applyCompareMods} label={`Apply ${rec.pendingMods.length} calendar change${rec.pendingMods.length>1?"s":""}`} color={T.purple}/>}
+            {selectedRec?.pendingMods?.length>0&&<Btn onClick={applyCompareMods} label={`Apply ${selectedRec.pendingMods.length} calendar change${selectedRec.pendingMods.length>1?"s":""}`} color={T.purple}/>}
             <Btn onClick={()=>setComparison(null)} label="Dismiss" color={T.muted} small/>
           </div>
         </Card>}
@@ -1700,11 +1789,13 @@ export default function App(){
   const [sentiment,setSentiment]=useState(null);
   const [sentimentStatus,setSentimentStatus]=useState("idle");
   const [drafts,setDrafts]=useState([]);
+  const [postStatus,setPostStatus]=useState([]); // manual status/date overrides per calendar post
+  const [aiRec,setAiRec]=useState(null); // persisted Content Plan AI recommendation
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    Promise.all([sg(KEY.posts),sg(KEY.weekly),sg(KEY.followers),sg(KEY.mods),sg(KEY.sentiment),sg(KEY.drafts)])
-      .then(([p,w,f,m,s,d])=>{setPosts(p);setWeekly(w);setFollowers(f);setMods(m);if(s&&!Array.isArray(s))setSentiment(s);if(Array.isArray(d))setDrafts(d);})
+    Promise.all([sg(KEY.posts),sg(KEY.weekly),sg(KEY.followers),sg(KEY.mods),sg(KEY.sentiment),sg(KEY.drafts),sg(KEY.pstatus),sg(KEY.airec)])
+      .then(([p,w,f,m,s,d,ps,ar])=>{setPosts(p);setWeekly(w);setFollowers(f);setMods(m);if(s&&!Array.isArray(s))setSentiment(s);if(Array.isArray(d))setDrafts(d);if(Array.isArray(ps))setPostStatus(ps);if(ar&&!Array.isArray(ar))setAiRec(ar);})
       .finally(()=>setLoading(false));
   },[]);
 
@@ -1713,6 +1804,8 @@ export default function App(){
   const saveFollower=useCallback(async e=>{const n=[...followers.filter(f=>f.id!==e.id),e];setFollowers(n);await ss(KEY.followers,n);},[followers]);
   const saveMods=useCallback(async m=>{setMods(m);await ss(KEY.mods,m);},[]);
   const saveDrafts=useCallback(async d=>{setDrafts(d);await ss(KEY.drafts,d);},[]);
+  const savePostStatus=useCallback(async ps=>{setPostStatus(ps);await ss(KEY.pstatus,ps);},[]);
+  const saveAiRec=useCallback(async ar=>{setAiRec(ar);await ss(KEY.airec,ar);},[]);
   const handleSentiment=useCallback(async(data,status)=>{
     setSentimentStatus(status);
     if(data&&status==="done"){setSentiment(data);await ss(KEY.sentiment,data);}
@@ -1762,7 +1855,7 @@ export default function App(){
       {tab==="overview"&&<Overview posts={posts} weekly={weekly} followers={followers}/>}
       {tab==="reports"&&<Reports posts={posts} weekly={weekly} followers={followers} onSavePost={savePost} onSaveWeekly={saveWeekly} onSaveFollower={saveFollower} onDelete={delEntry}/>}
       {tab==="progress"&&<Progress posts={posts} weekly={weekly} followers={followers}/>}
-      {tab==="content"&&<ContentPlan posts={posts} mods={mods} onSaveMods={saveMods} sentiment={sentiment}/>}
+      {tab==="content"&&<ContentPlan posts={posts} mods={mods} onSaveMods={saveMods} sentiment={sentiment} postStatus={postStatus} onSavePostStatus={savePostStatus} aiRec={aiRec} onSaveAiRec={saveAiRec} onSwitchToPlanner={()=>setTab("planner")}/>}
       {tab==="planner"&&<AIPlanner posts={posts} weekly={weekly} sentiment={sentiment} mods={mods} onSaveMods={saveMods} drafts={drafts} onSaveDrafts={saveDrafts}/>}
       {tab==="sentiment"&&<SentimentReport data={sentiment} loading={sentimentStatus==="loading"} onGenerate={handleSentiment} posts={posts}/>}
     </div>
